@@ -25,6 +25,7 @@ type TransactionInput = {
   amount: number;
   category: string;
   description: string;
+  date: Timestamp;
 };
 
 type Transaction = TransactionInput & {
