@@ -3,10 +3,12 @@ import { signOut } from "firebase/auth";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
+import { useTransactions } from "../contexts/TransactionsContext";
 import { auth, db } from "../firebaseConfig";
 
 export default function HomeScreen() {
   const { user, loading } = useAuth();
+  const { transactions } = useTransactions();
 
   if (loading) {
     return (
