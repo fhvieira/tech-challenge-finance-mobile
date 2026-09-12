@@ -11,6 +11,8 @@ import {
   Text,
   View,
 } from "react-native";
+import { formatCurrency } from "../constants/formatters";
+import { getPressedFeedbackStyle } from "../constants/pressableFeedback";
 import { useAuth } from "../contexts/AuthContext";
 import { useTransactions } from "../contexts/TransactionsContext";
 import { auth } from "../firebaseConfig";
@@ -42,6 +44,18 @@ export default function HomeScreen() {
 
   const incomePercentage = (totalIncome / maxValue) * 100;
   const expensePercentage = (totalExpense / maxValue) * 100;
+  const hasTransactions = transactions.length > 0;
+  const remainingIncomePercentage =
+    totalIncome > 0 ? (Math.max(balance, 0) / totalIncome) * 100 : 0;
+  const financialInsight = !hasTransactions
+    ? "Cadastre sua primeira transação para começar a acompanhar sua vida financeira."
+    : totalIncome === 0
+      ? "Você registrou saídas, mas ainda não há entradas neste período."
+      : balance > 0
+        ? `Você manteve ${remainingIncomePercentage.toFixed(0)}% das entradas após as saídas.`
+        : balance < 0
+          ? "Suas saídas estão acima das entradas. Vale revisar os próximos gastos."
+          : "Suas entradas e saídas estão equilibradas neste momento.";
 
   useEffect(() => {
     chartAnimation.setValue(0);
@@ -127,12 +141,10 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Abrir menu"
-          >
-            <Text style={styles.headerIcon}>☰</Text>
-          </Pressable>
+          <View>
+            <Text style={styles.headerTitle}>Dashboard</Text>
+            <Text style={styles.headerSubtitle}>Visão geral</Text>
+          </View>
 
           <View style={styles.profile}>
             <Text style={styles.profileText}>
@@ -143,6 +155,7 @@ export default function HomeScreen() {
 
         <View style={styles.summaryCard}>
           <Pressable
+            style={({ pressed }) => getPressedFeedbackStyle(pressed)}
             onPress={toggleSummary}
             accessibilityRole="button"
             accessibilityLabel={
@@ -151,16 +164,16 @@ export default function HomeScreen() {
                 : "Expandir resumo financeiro"
             }
           >
-          <View style={styles.summaryHeader}>
-            <View>
-              <Text style={styles.greeting}>Olá! :)</Text>
-              <Text style={styles.accountLabel}>Conta Corrente</Text>
-            </View>
+            <View style={styles.summaryHeader}>
+              <View>
+                <Text style={styles.greeting}>Olá! :)</Text>
+                <Text style={styles.accountLabel}>Conta Corrente</Text>
+              </View>
 
-            <Text style={styles.expandIcon}>
-              {isSummaryExpanded ? "▼" : "▶"}
-            </Text>
-          </View>
+              <Text style={styles.expandIcon}>
+                {isSummaryExpanded ? "▼" : "▶"}
+              </Text>
+            </View>
           </Pressable>
 
           <Animated.View
@@ -169,12 +182,12 @@ export default function HomeScreen() {
             <Text style={styles.summaryLabel}>Saldo</Text>
 
             <Text style={styles.balance}>
-              R$ {balance.toFixed(2)}
+              {formatCurrency(balance)}
             </Text>
 
             <View style={styles.totalsRow}>
-              <Text>Entradas: R$ {totalIncome.toFixed(2)}</Text>
-              <Text>Saídas: R$ {totalExpense.toFixed(2)}</Text>
+              <Text>Entradas: {formatCurrency(totalIncome)}</Text>
+              <Text>Saídas: {formatCurrency(totalExpense)}</Text>
             </View>
           </Animated.View>
         </View>
@@ -184,6 +197,7 @@ export default function HomeScreen() {
           accessibilityLabel="Gráfico comparativo de entradas e saídas"
         >
           <Pressable
+            style={({ pressed }) => getPressedFeedbackStyle(pressed)}
             onPress={toggleChart}
             accessibilityRole="button"
             accessibilityLabel={
@@ -219,7 +233,7 @@ export default function HomeScreen() {
             </View>
 
             <Text>
-              R$ {totalIncome.toFixed(2)}
+              {formatCurrency(totalIncome)}
             </Text>
 
             <Text style={styles.chartLabel}>
@@ -241,13 +255,14 @@ export default function HomeScreen() {
             </View>
 
             <Text>
-              R$ {totalExpense.toFixed(2)}
+              {formatCurrency(totalExpense)}
             </Text>
           </Animated.View>
         </View>
 
         <View style={styles.analysisCard}>
           <Pressable
+            style={({ pressed }) => getPressedFeedbackStyle(pressed)}
             onPress={toggleAnalysis}
             accessibilityRole="button"
             accessibilityLabel={
@@ -262,20 +277,40 @@ export default function HomeScreen() {
           </Pressable>
 
           <Animated.View
-            style={getSectionContentStyle(analysisSectionAnimation, 80)}
+            style={getSectionContentStyle(analysisSectionAnimation, 220)}
           >
-            <Text>
-              {balance > 0
-                ? `Suas entradas superam as saídas em R$ ${balance.toFixed(2)}.`
-                : balance < 0
-                  ? `Suas saídas superam as entradas em R$ ${Math.abs(balance).toFixed(2)}.`
-                  : "Suas entradas e saídas estão equilibradas."}
+            <Text style={styles.analysisLabel}>Saldo atual</Text>
+            <Text style={styles.analysisBalance}>
+              {formatCurrency(balance)}
             </Text>
+
+            <View style={styles.analysisTotals}>
+              <View style={styles.analysisTotalItem}>
+                <Text style={styles.incomeText}>Entradas</Text>
+                <Text style={styles.analysisTotalValue}>
+                  {formatCurrency(totalIncome)}
+                </Text>
+              </View>
+
+              <View style={styles.analysisTotalItem}>
+                <Text style={styles.expenseText}>Saídas</Text>
+                <Text style={styles.analysisTotalValue}>
+                  {formatCurrency(totalExpense)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.insightBox}>
+              <Text style={styles.insightText}>{financialInsight}</Text>
+            </View>
           </Animated.View>
         </View>
 
         <Pressable
-          style={styles.button}
+          style={({ pressed }) => [
+            styles.button,
+            getPressedFeedbackStyle(pressed),
+          ]}
           onPress={() => router.push("/transaction-form")}
           accessibilityRole="button"
           accessibilityLabel="Criar nova transação"
@@ -284,7 +319,10 @@ export default function HomeScreen() {
         </Pressable>
 
         <Pressable
-          style={styles.button}
+          style={({ pressed }) => [
+            styles.button,
+            getPressedFeedbackStyle(pressed),
+          ]}
           onPress={() => router.push("/transactions")}
           accessibilityRole="button"
           accessibilityLabel="Ver extrato"
@@ -293,7 +331,10 @@ export default function HomeScreen() {
         </Pressable>
 
         <Pressable
-          style={styles.secondaryButton}
+          style={({ pressed }) => [
+            styles.secondaryButton,
+            getPressedFeedbackStyle(pressed),
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Sair da aplicação"
           onPress={() => signOut(auth)}
@@ -354,7 +395,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  
+
   summaryCard: {
     width: "100%",
     padding: 20,
@@ -378,7 +419,7 @@ const styles = StyleSheet.create({
   chartCard: {
     width: "100%",
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     backgroundColor: "#fff",
     marginBottom: 20,
   },
@@ -418,7 +459,7 @@ const styles = StyleSheet.create({
   analysisCard: {
     width: "100%",
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     backgroundColor: "#fff",
     marginBottom: 20,
   },
@@ -427,6 +468,61 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 8,
+  },
+
+  analysisLabel: {
+    color: "#555",
+    fontSize: 14,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+
+  analysisBalance: {
+    color: "#004D40",
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+
+  analysisTotals: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 14,
+  },
+
+  analysisTotalItem: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#E4EDEB",
+    borderRadius: 12,
+    padding: 12,
+  },
+
+  analysisTotalValue: {
+    color: "#333",
+    fontWeight: "700",
+    marginTop: 4,
+  },
+
+  incomeText: {
+    color: "#2E7D32",
+    fontWeight: "700",
+  },
+
+  expenseText: {
+    color: "#F28C6F",
+    fontWeight: "700",
+  },
+
+  insightBox: {
+    backgroundColor: "#E4EDEB",
+    borderRadius: 12,
+    padding: 12,
+  },
+
+  insightText: {
+    color: "#004D40",
+    lineHeight: 20,
   },
 
   header: {
@@ -441,10 +537,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
 
-  headerIcon: {
-    fontSize: 30,
-    fontWeight: "600",
+  headerTitle: {
     color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  headerSubtitle: {
+    color: "#E4EDEB",
+    fontSize: 13,
+    marginTop: 2,
   },
 
   profile: {

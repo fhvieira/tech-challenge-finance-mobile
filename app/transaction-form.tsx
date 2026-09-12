@@ -1,6 +1,6 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
-import { router, useLocalSearchParams } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { Timestamp } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useEffect, useState } from "react";
@@ -14,10 +14,18 @@ import {
   TextInput,
   View
 } from "react-native";
+import { formatDate } from "../constants/formatters";
+import { formValidationStyles } from "../constants/formValidationStyles";
+import { getPressedFeedbackStyle } from "../constants/pressableFeedback";
 import { useAuth } from "../contexts/AuthContext";
 import { storage } from "../firebaseConfig";
 
 import { useTransactions } from "../contexts/TransactionsContext";
+
+type TransactionFormErrors = {
+  amount?: string;
+  category?: string;
+};
 
 export default function TransactionFormScreen() {
   const { user } = useAuth();
@@ -40,6 +48,7 @@ export default function TransactionFormScreen() {
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [errors, setErrors] = useState<TransactionFormErrors>({});
 
   const isEditing = Boolean(id);
 
@@ -52,31 +61,53 @@ export default function TransactionFormScreen() {
 
     if (!transaction) return;
 
-    setType(transaction.type);
-    setAmount(transaction.amount.toString());
-    setCategory(transaction.category);
-    setDescription(transaction.description);
+    const frame = requestAnimationFrame(() => {
+      setType(transaction.type);
+      setAmount(transaction.amount.toString());
+      setCategory(transaction.category);
+      setDescription(transaction.description);
 
-    if (transaction.date) {
-      setDate(transaction.date.toDate());
-    }
+      if (transaction.date) {
+        setDate(transaction.date.toDate());
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [id, transactions]);
 
+  function handleAmountChange(value: string) {
+    setAmount(value);
+    setErrors((current) => ({ ...current, amount: undefined }));
+  }
+
+  function handleCategoryChange(value: string) {
+    setCategory(value);
+    setErrors((current) => ({ ...current, category: undefined }));
+  }
+
   async function handleSubmit() {
+    const nextErrors: TransactionFormErrors = {};
+
     if (!amount.trim()) {
-      alert("Informe o valor da transação.");
-      return;
+      nextErrors.amount = "Informe o valor da transação.";
     }
 
     if (!category.trim()) {
-      alert("Informe a categoria.");
-      return;
+      nextErrors.category = "Informe a categoria.";
     }
 
     const numericAmount = Number(amount.replace(",", "."));
 
-    if (Number.isNaN(numericAmount) || numericAmount <= 0) {
-      alert("Informe um valor válido.");
+    if (
+      amount.trim() &&
+      (Number.isNaN(numericAmount) || numericAmount <= 0)
+    ) {
+      nextErrors.amount = "Informe um valor válido maior que zero.";
+    }
+
+    setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
@@ -142,6 +173,13 @@ export default function TransactionFormScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <Stack.Screen
+        options={{
+          title: isEditing ? "Editar transação" : "Nova transação",
+          headerBackTitle: isEditing ? "Transações" : "Início",
+        }}
+      />
+
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
@@ -154,9 +192,10 @@ export default function TransactionFormScreen() {
         <View style={styles.formCard}>
           <View style={styles.typeSelector}>
             <Pressable
-              style={[
+              style={({ pressed }) => [
                 styles.typeButton,
                 type === "income" && styles.incomeSelected,
+                getPressedFeedbackStyle(pressed),
               ]}
               onPress={() => setType("income")}
               accessibilityRole="button"
@@ -174,9 +213,10 @@ export default function TransactionFormScreen() {
             </Pressable>
 
             <Pressable
-              style={[
+              style={({ pressed }) => [
                 styles.typeButton,
                 type === "expense" && styles.expenseSelected,
+                getPressedFeedbackStyle(pressed),
               ]}
               onPress={() => setType("expense")}
               accessibilityRole="button"
@@ -196,34 +236,64 @@ export default function TransactionFormScreen() {
 
           <Text style={styles.label}>Valor</Text>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              errors.amount && formValidationStyles.errorInput,
+            ]}
             value={amount}
-            onChangeText={setAmount}
-            placeholder="0,00"
+            onChangeText={handleAmountChange}
+            placeholder="Digite o valor"
+            placeholderTextColor="#777"
             keyboardType="decimal-pad"
             accessibilityLabel="Valor da transação"
+            accessibilityHint={errors.amount}
           />
+          {errors.amount && (
+            <Text
+              style={formValidationStyles.errorText}
+              accessibilityLiveRegion="polite"
+            >
+              {errors.amount}
+            </Text>
+          )}
 
           <Text style={styles.label}>Categoria</Text>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              errors.category && formValidationStyles.errorInput,
+            ]}
             value={category}
-            onChangeText={setCategory}
-            placeholder="Ex.: Alimentação"
+            onChangeText={handleCategoryChange}
+            placeholder="Digite a categoria"
+            placeholderTextColor="#777"
             accessibilityLabel="Categoria da transação"
+            accessibilityHint={errors.category}
           />
+          {errors.category && (
+            <Text
+              style={formValidationStyles.errorText}
+              accessibilityLiveRegion="polite"
+            >
+              {errors.category}
+            </Text>
+          )}
 
           <Text style={styles.label}>Descrição</Text>
           <TextInput
             style={styles.input}
             value={description}
             onChangeText={setDescription}
-            placeholder="Descrição opcional"
+            placeholder="Digite uma descrição"
+            placeholderTextColor="#777"
             accessibilityLabel="Descrição da transação"
           />
 
           <Pressable
-            style={styles.receiptButton}
+            style={({ pressed }) => [
+              styles.receiptButton,
+              getPressedFeedbackStyle(pressed),
+            ]}
             onPress={pickReceipt}
             accessibilityRole="button"
             accessibilityLabel="Selecionar comprovante"
@@ -240,12 +310,15 @@ export default function TransactionFormScreen() {
           <Text style={styles.label}>Data</Text>
 
           <Pressable
-            style={styles.input}
+            style={({ pressed }) => [
+              styles.input,
+              getPressedFeedbackStyle(pressed),
+            ]}
             onPress={() => setShowDatePicker(true)}
             accessibilityRole="button"
             accessibilityLabel="Selecionar data da transação"
           >
-            <Text>{date.toLocaleDateString("pt-BR")}</Text>
+            <Text>{formatDate(date)}</Text>
           </Pressable>
 
           {showDatePicker && (
@@ -263,7 +336,10 @@ export default function TransactionFormScreen() {
           )}
 
           <Pressable
-            style={styles.button}
+            style={({ pressed }) => [
+              styles.button,
+              getPressedFeedbackStyle(pressed),
+            ]}
             onPress={handleSubmit}
             accessibilityRole="button"
             accessibilityLabel={
@@ -301,7 +377,8 @@ const styles = StyleSheet.create({
 
   label: {
     marginBottom: 6,
-    fontWeight: "500",
+    fontSize: 16,
+    fontWeight: "600",
   },
 
   input: {
@@ -314,13 +391,15 @@ const styles = StyleSheet.create({
   },
 
   button: {
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: "center",
-    borderRadius: 8,
-    backgroundColor: "#ff6b5f",
+    borderRadius: 12,
+    backgroundColor: "#F28C6F",
   },
 
   buttonText: {
+    color: "#ffffff",
+    fontSize: 16,
     fontWeight: "600",
   },
 
@@ -332,11 +411,11 @@ const styles = StyleSheet.create({
   },
 
   receiptButton: {
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: "#004D40",
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: "center",
     marginBottom: 16,
   },
@@ -358,7 +437,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#ccc",
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: "#ffffff",
   },
 

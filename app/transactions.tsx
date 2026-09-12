@@ -2,6 +2,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
+  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -9,6 +10,8 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { formatCurrency, formatDate } from "../constants/formatters";
+import { getPressedFeedbackStyle } from "../constants/pressableFeedback";
 import { useTransactions } from "../contexts/TransactionsContext";
 
 export default function TransactionsScreen() {
@@ -75,6 +78,24 @@ export default function TransactionsScreen() {
     setEndDateFilter(null);
   }
 
+  function confirmDeleteTransaction(transactionId: string) {
+    Alert.alert(
+      "Excluir transação?",
+      "Esta ação não poderá ser desfeita.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () => deleteTransaction(transactionId),
+        },
+      ],
+    );
+  }
+
   return (
     <FlatList
       data={visibleTransactions}
@@ -97,6 +118,7 @@ export default function TransactionsScreen() {
 
           <View style={styles.card}>
             <Pressable
+              style={({ pressed }) => getPressedFeedbackStyle(pressed)}
               onPress={() => setFiltersExpanded((current) => !current)}
               accessibilityRole="button"
               accessibilityLabel={
@@ -121,7 +143,8 @@ export default function TransactionsScreen() {
                   style={styles.input}
                   value={categoryFilter}
                   onChangeText={setCategoryFilter}
-                  placeholder="Ex.: Alimentação"
+                  placeholder="Digite a categoria"
+                  placeholderTextColor="#777"
                   accessibilityLabel="Filtrar transações por categoria"
                 />
 
@@ -131,7 +154,8 @@ export default function TransactionsScreen() {
                   value={minAmountFilter}
                   onChangeText={setMinAmountFilter}
                   keyboardType="decimal-pad"
-                  placeholder="0,00"
+                  placeholder="Digite o valor mínimo"
+                  placeholderTextColor="#777"
                   accessibilityLabel="Filtrar por valor mínimo"
                 />
 
@@ -141,20 +165,24 @@ export default function TransactionsScreen() {
                   value={maxAmountFilter}
                   onChangeText={setMaxAmountFilter}
                   keyboardType="decimal-pad"
-                  placeholder="0,00"
+                  placeholder="Digite o valor máximo"
+                  placeholderTextColor="#777"
                   accessibilityLabel="Filtrar por valor máximo"
                 />
 
                 <Text style={styles.label}>Data inicial</Text>
                 <Pressable
-                  style={styles.input}
+                  style={({ pressed }) => [
+                    styles.input,
+                    getPressedFeedbackStyle(pressed),
+                  ]}
                   onPress={() => setShowStartDatePicker(true)}
                   accessibilityRole="button"
                   accessibilityLabel="Selecionar data inicial"
                 >
                   <Text>
                     {startDateFilter
-                      ? startDateFilter.toLocaleDateString("pt-BR")
+                      ? formatDate(startDateFilter)
                       : "Selecionar data"}
                   </Text>
                 </Pressable>
@@ -176,14 +204,17 @@ export default function TransactionsScreen() {
 
                 <Text style={styles.label}>Data final</Text>
                 <Pressable
-                  style={styles.input}
+                  style={({ pressed }) => [
+                    styles.input,
+                    getPressedFeedbackStyle(pressed),
+                  ]}
                   onPress={() => setShowEndDatePicker(true)}
                   accessibilityRole="button"
                   accessibilityLabel="Selecionar data final"
                 >
                   <Text>
                     {endDateFilter
-                      ? endDateFilter.toLocaleDateString("pt-BR")
+                      ? formatDate(endDateFilter)
                       : "Selecionar data"}
                   </Text>
                 </Pressable>
@@ -204,7 +235,10 @@ export default function TransactionsScreen() {
                 )}
 
                 <Pressable
-                  style={styles.clearButton}
+                  style={({ pressed }) => [
+                    styles.clearButton,
+                    getPressedFeedbackStyle(pressed),
+                  ]}
                   onPress={clearFilters}
                   accessibilityRole="button"
                   accessibilityLabel="Limpar filtros do extrato"
@@ -241,8 +275,8 @@ export default function TransactionsScreen() {
                   : styles.expenseText,
               ]}
             >
-              {transaction.type === "income" ? "+" : "-"} R${" "}
-              {transaction.amount.toFixed(2)}
+              {transaction.type === "income" ? "+" : "-"}
+              {formatCurrency(transaction.amount)}
             </Text>
           </View>
 
@@ -253,14 +287,17 @@ export default function TransactionsScreen() {
 
             {transaction.date && (
               <Text style={styles.transactionDate}>
-                {transaction.date.toDate().toLocaleDateString("pt-BR")}
+                {formatDate(transaction.date.toDate())}
               </Text>
             )}
           </View>
 
           <View style={styles.transactionActions}>
             <Pressable
-              style={styles.editButton}
+              style={({ pressed }) => [
+                styles.editButton,
+                getPressedFeedbackStyle(pressed),
+              ]}
               onPress={() =>
                 router.push({
                   pathname: "/transaction-form",
@@ -274,8 +311,11 @@ export default function TransactionsScreen() {
             </Pressable>
 
             <Pressable
-              style={styles.deleteButton}
-              onPress={() => deleteTransaction(transaction.id)}
+              style={({ pressed }) => [
+                styles.deleteButton,
+                getPressedFeedbackStyle(pressed),
+              ]}
+              onPress={() => confirmDeleteTransaction(transaction.id)}
               accessibilityRole="button"
               accessibilityLabel={`Excluir transação ${transaction.category}`}
             >
@@ -318,8 +358,9 @@ const styles = StyleSheet.create({
   },
 
   label: {
+    fontSize: 16,
     marginBottom: 6,
-    fontWeight: "500",
+    fontWeight: "600",
   },
 
   input: {
@@ -393,7 +434,7 @@ const styles = StyleSheet.create({
   editButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#004D40",
   },
@@ -406,8 +447,8 @@ const styles = StyleSheet.create({
   deleteButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: "#F28C6F",
+    borderRadius: 12,
+    backgroundColor: "#D7654B",
   },
 
   deleteButtonText: {
@@ -416,7 +457,7 @@ const styles = StyleSheet.create({
   },
 
   transactionItem: {
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
   },
@@ -425,12 +466,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#666",
-    borderRadius: 8,
+    borderColor: "#004D40",
+    borderRadius: 12,
     marginBottom: 20,
   },
 
   clearButtonText: {
+    color: "#004D40",
     fontWeight: "600",
   },
 
