@@ -1,6 +1,8 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as DocumentPicker from "expo-document-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { Timestamp } from "firebase/firestore";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -12,11 +14,17 @@ import {
   TextInput,
   View
 } from "react-native";
+import { useAuth } from "../contexts/AuthContext";
+import { storage } from "../firebaseConfig";
 
 import { useTransactions } from "../contexts/TransactionsContext";
 
 export default function TransactionFormScreen() {
+  const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id?: string }>();
+
+  const [receipt, setReceipt] =
+  useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
   const {
     transactions,
@@ -72,12 +80,21 @@ export default function TransactionFormScreen() {
       return;
     }
 
+    const existingTransaction = id
+      ? transactions.find((item) => item.id === id)
+      : undefined;
+
+    const receiptUrl = receipt
+      ? await uploadReceipt()
+      : existingTransaction?.receiptUrl ?? null;
+
     const transactionData = {
       type,
       amount: numericAmount,
       category: category.trim(),
       description: description.trim(),
       date: Timestamp.fromDate(date),
+      receiptUrl,
     };
 
     if (isEditing && id) {
@@ -87,6 +104,37 @@ export default function TransactionFormScreen() {
     }
 
     router.back();
+  }
+
+  async function pickReceipt() {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["image/*", "application/pdf"],
+      copyToCacheDirectory: true,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    setReceipt(result.assets[0]);
+  }
+
+  async function uploadReceipt() {
+    if (!receipt || !user) {
+      return null;
+    }
+
+    const response = await fetch(receipt.uri);
+    const blob = await response.blob();
+
+    const fileRef = ref(
+      storage,
+      `users/${user.uid}/receipts/${Date.now()}-${receipt.name}`
+    );
+
+    await uploadBytes(fileRef, blob);
+
+    return await getDownloadURL(fileRef);
   }
 
   return (
@@ -166,6 +214,18 @@ export default function TransactionFormScreen() {
           placeholder="Descrição opcional"
           accessibilityLabel="Descrição da transação"
         />
+
+        <Pressable
+          onPress={pickReceipt}
+          accessibilityRole="button"
+          accessibilityLabel="Selecionar comprovante"
+        >
+          <Text>Selecionar comprovante</Text>
+        </Pressable>
+
+        {receipt && (
+          <Text>Arquivo selecionado: {receipt.name}</Text>
+        )}
 
         <Text style={styles.label}>Data</Text>
 

@@ -26,6 +26,7 @@ type TransactionInput = {
   category: string;
   description: string;
   date: Timestamp;
+  receiptUrl?: string | null;
 };
 
 type Transaction = TransactionInput & {
