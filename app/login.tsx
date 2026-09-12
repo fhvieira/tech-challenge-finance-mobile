@@ -24,18 +24,11 @@ export default function LoginScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text
-        style={{
-          fontSize: 28,
-          marginBottom: 24,
-          textAlign: "center",
-        }}
-      >
-        Login
-      </Text>
+  <View style={styles.container}>
+    <View style={styles.loginCard}>
+      <Text style={styles.title}>Login</Text>
 
-      <Text>Email</Text>
+      <Text style={styles.label}>Email</Text>
 
       <TextInput
         value={email}
@@ -87,6 +80,7 @@ export default function LoginScreen() {
         </Text>
       </Pressable>
     </View>
+  </View> 
   );
 }
 
@@ -95,7 +89,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     padding: 24,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#004D40",
   },
 
   input: {
@@ -135,5 +129,26 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
     marginTop: 16,
+  },
+
+  loginCard: {
+    width: "100%",
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    padding: 24,
+  },
+
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    textAlign: "center",
+    color: "#004D40",
+    marginBottom: 28,
+  },
+
+  label: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
   },
 });

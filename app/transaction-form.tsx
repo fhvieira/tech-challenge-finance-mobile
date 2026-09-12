@@ -24,7 +24,7 @@ export default function TransactionFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
 
   const [receipt, setReceipt] =
-  useState<DocumentPicker.DocumentPickerAsset | null>(null);
+    useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
   const {
     transactions,
@@ -147,127 +147,138 @@ export default function TransactionFormScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
       >
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-        >
-          <Text style={styles.backText}>Voltar</Text>
-        </Pressable>
-
         <Text style={styles.title}>
           {isEditing ? "Editar transação" : "Nova transação"}
         </Text>
 
-        <View style={styles.typeContainer}>
-          <Pressable
-            style={[
-              styles.typeButton,
-              type === "income" && styles.typeButtonSelected,
-            ]}
-            onPress={() => setType("income")}
-            accessibilityRole="button"
-            accessibilityLabel="Selecionar entrada"
-            accessibilityState={{ selected: type === "income" }}
-          >
-            <Text>Entrada</Text>
-          </Pressable>
+        <View style={styles.formCard}>
+          <View style={styles.typeSelector}>
+            <Pressable
+              style={[
+                styles.typeButton,
+                type === "income" && styles.incomeSelected,
+              ]}
+              onPress={() => setType("income")}
+              accessibilityRole="button"
+              accessibilityLabel="Selecionar entrada"
+              accessibilityState={{ selected: type === "income" }}
+            >
+              <Text
+                style={[
+                  styles.typeButtonText,
+                  type === "income" && styles.selectedButtonText,
+                ]}
+              >
+                Entrada
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.typeButton,
+                type === "expense" && styles.expenseSelected,
+              ]}
+              onPress={() => setType("expense")}
+              accessibilityRole="button"
+              accessibilityLabel="Selecionar despesa"
+              accessibilityState={{ selected: type === "expense" }}
+            >
+              <Text
+                style={[
+                  styles.typeButtonText,
+                  type === "expense" && styles.selectedButtonText,
+                ]}
+              >
+                Despesa
+              </Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.label}>Valor</Text>
+          <TextInput
+            style={styles.input}
+            value={amount}
+            onChangeText={setAmount}
+            placeholder="0,00"
+            keyboardType="decimal-pad"
+            accessibilityLabel="Valor da transação"
+          />
+
+          <Text style={styles.label}>Categoria</Text>
+          <TextInput
+            style={styles.input}
+            value={category}
+            onChangeText={setCategory}
+            placeholder="Ex.: Alimentação"
+            accessibilityLabel="Categoria da transação"
+          />
+
+          <Text style={styles.label}>Descrição</Text>
+          <TextInput
+            style={styles.input}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Descrição opcional"
+            accessibilityLabel="Descrição da transação"
+          />
 
           <Pressable
-            style={[
-              styles.typeButton,
-              type === "expense" && styles.typeButtonSelected,
-            ]}
-            onPress={() => setType("expense")}
+            style={styles.receiptButton}
+            onPress={pickReceipt}
             accessibilityRole="button"
-            accessibilityLabel="Selecionar despesa"
-            accessibilityState={{ selected: type === "expense" }}
+            accessibilityLabel="Selecionar comprovante"
           >
-            <Text>Despesa</Text>
+            <Text style={styles.receiptButtonText}>
+              Selecionar comprovante
+            </Text>
+          </Pressable>
+
+          {receipt && (
+            <Text>Arquivo selecionado: {receipt.name}</Text>
+          )}
+
+          <Text style={styles.label}>Data</Text>
+
+          <Pressable
+            style={styles.input}
+            onPress={() => setShowDatePicker(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Selecionar data da transação"
+          >
+            <Text>{date.toLocaleDateString("pt-BR")}</Text>
+          </Pressable>
+
+          {showDatePicker && (
+            <DateTimePicker
+              value={date}
+              mode="date"
+              onChange={(_, selectedDate) => {
+                setShowDatePicker(false);
+
+                if (selectedDate) {
+                  setDate(selectedDate);
+                }
+              }}
+            />
+          )}
+
+          <Pressable
+            style={styles.button}
+            onPress={handleSubmit}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isEditing
+                ? "Salvar alterações da transação"
+                : "Concluir transação"
+            }
+          >
+            <Text style={styles.buttonText}>
+              {isEditing ? "Salvar alterações" : "Concluir transação"}
+            </Text>
           </Pressable>
         </View>
-
-        <Text style={styles.label}>Valor</Text>
-        <TextInput
-          style={styles.input}
-          value={amount}
-          onChangeText={setAmount}
-          placeholder="0,00"
-          keyboardType="decimal-pad"
-          accessibilityLabel="Valor da transação"
-        />
-
-        <Text style={styles.label}>Categoria</Text>
-        <TextInput
-          style={styles.input}
-          value={category}
-          onChangeText={setCategory}
-          placeholder="Ex.: Alimentação"
-          accessibilityLabel="Categoria da transação"
-        />
-
-        <Text style={styles.label}>Descrição</Text>
-        <TextInput
-          style={styles.input}
-          value={description}
-          onChangeText={setDescription}
-          placeholder="Descrição opcional"
-          accessibilityLabel="Descrição da transação"
-        />
-
-        <Pressable
-          onPress={pickReceipt}
-          accessibilityRole="button"
-          accessibilityLabel="Selecionar comprovante"
-        >
-          <Text>Selecionar comprovante</Text>
-        </Pressable>
-
-        {receipt && (
-          <Text>Arquivo selecionado: {receipt.name}</Text>
-        )}
-
-        <Text style={styles.label}>Data</Text>
-
-        <Pressable
-          style={styles.input}
-          onPress={() => setShowDatePicker(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Selecionar data da transação"
-        >
-          <Text>{date.toLocaleDateString("pt-BR")}</Text>
-        </Pressable>
-
-        {showDatePicker && (
-          <DateTimePicker
-            value={date}
-            mode="date"
-            onChange={(_, selectedDate) => {
-              setShowDatePicker(false);
-
-              if (selectedDate) {
-                setDate(selectedDate);
-              }
-            }}
-          />
-        )}
-
-        <Pressable
-          style={styles.button}
-          onPress={handleSubmit}
-          accessibilityRole="button"
-          accessibilityLabel={
-            isEditing
-              ? "Salvar alterações da transação"
-              : "Concluir transação"
-          }
-        >
-          <Text style={styles.buttonText}>
-            {isEditing ? "Salvar alterações" : "Concluir transação"}
-          </Text>
-        </Pressable>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingView >
   );
 }
 
@@ -275,6 +286,7 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     padding: 20,
+    backgroundColor: "#E4EDEB",
   },
 
   title: {
@@ -301,25 +313,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  typeContainer: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
-  },
-
-  typeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-  },
-
-  typeButtonSelected: {
-    borderWidth: 2,
-  },
-
   button: {
     paddingVertical: 14,
     alignItems: "center",
@@ -329,5 +322,63 @@ const styles = StyleSheet.create({
 
   buttonText: {
     fontWeight: "600",
+  },
+
+  formCard: {
+    width: "100%",
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    padding: 20,
+  },
+
+  receiptButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "#004D40",
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+
+  receiptButtonText: {
+    color: "#004D40",
+    fontWeight: "600",
+  },
+
+  typeSelector: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 20,
+  },
+
+  typeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    backgroundColor: "#ffffff",
+  },
+
+  incomeSelected: {
+    backgroundColor: "#2E7D32",
+    borderColor: "#2E7D32",
+  },
+
+  expenseSelected: {
+    backgroundColor: "#F28C6F",
+    borderColor: "#F28C6F",
+  },
+
+  typeButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+  },
+
+  selectedButtonText: {
+    color: "#ffffff",
   },
 });
