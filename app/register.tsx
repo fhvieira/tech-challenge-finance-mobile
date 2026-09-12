@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useState } from "react";
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -87,7 +88,9 @@ export default function RegisterScreen() {
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        onScrollBeginDrag={Keyboard.dismiss}
+        onTouchStart={Keyboard.dismiss}
       >
         <View style={styles.card}>
           <Text style={styles.title}>Criar conta</Text>

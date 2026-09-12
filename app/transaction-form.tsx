@@ -5,6 +5,7 @@ import { Timestamp } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useEffect, useState } from "react";
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -183,7 +184,9 @@ export default function TransactionFormScreen() {
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        onScrollBeginDrag={Keyboard.dismiss}
+        onTouchStart={Keyboard.dismiss}
       >
         <Text style={styles.title}>
           {isEditing ? "Editar transação" : "Nova transação"}
@@ -354,7 +357,7 @@ export default function TransactionFormScreen() {
           </Pressable>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView >
+    </KeyboardAvoidingView>
   );
 }
 

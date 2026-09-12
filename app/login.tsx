@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useState } from "react";
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -77,7 +78,9 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        onScrollBeginDrag={Keyboard.dismiss}
+        onTouchStart={Keyboard.dismiss}
       >
         <View style={styles.loginCard}>
           <Text style={styles.title}>Login</Text>

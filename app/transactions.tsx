@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
@@ -150,6 +151,7 @@ export default function TransactionsScreen() {
   }
 
   function scrollToFilters() {
+    Keyboard.dismiss();
     transactionsListRef.current?.scrollToOffset({
       offset: 0,
       animated: true,
@@ -217,6 +219,9 @@ export default function TransactionsScreen() {
         onEndReachedThreshold={0.5}
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        onScrollBeginDrag={Keyboard.dismiss}
+        onTouchStart={Keyboard.dismiss}
         ListHeaderComponent={
           <View style={[styles.card, styles.filtersCard]}>
             <Text style={styles.label}>Filtrar por categoria</Text>
