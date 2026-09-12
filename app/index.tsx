@@ -126,8 +126,20 @@ export default function HomeScreen() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Dashboard Financeiro</Text>
-        <Text style={styles.email}>{user.email}</Text>
+        <View style={styles.header}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Abrir menu"
+          >
+            <Text style={styles.headerIcon}>☰</Text>
+          </Pressable>
+
+          <View style={styles.profile}>
+            <Text style={styles.profileText}>
+              {user.email?.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        </View>
 
         <View style={styles.summaryCard}>
           <Pressable
@@ -139,9 +151,16 @@ export default function HomeScreen() {
                 : "Expandir resumo financeiro"
             }
           >
-            <Text style={styles.chartTitle}>
-              {isSummaryExpanded ? "▼" : "▶"} Resumo financeiro
+          <View style={styles.summaryHeader}>
+            <View>
+              <Text style={styles.greeting}>Olá! :)</Text>
+              <Text style={styles.accountLabel}>Conta Corrente</Text>
+            </View>
+
+            <Text style={styles.expandIcon}>
+              {isSummaryExpanded ? "▼" : "▶"}
             </Text>
+          </View>
           </Pressable>
 
           <Animated.View
@@ -153,13 +172,10 @@ export default function HomeScreen() {
               R$ {balance.toFixed(2)}
             </Text>
 
-            <Text>
-              Entradas: R$ {totalIncome.toFixed(2)}
-            </Text>
-
-            <Text>
-              Saídas: R$ {totalExpense.toFixed(2)}
-            </Text>
+            <View style={styles.totalsRow}>
+              <Text>Entradas: R$ {totalIncome.toFixed(2)}</Text>
+              <Text>Saídas: R$ {totalExpense.toFixed(2)}</Text>
+            </View>
           </Animated.View>
         </View>
 
@@ -292,10 +308,8 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
     padding: 20,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#E4EDEB",
   },
 
   title: {
@@ -310,33 +324,42 @@ const styles = StyleSheet.create({
   },
 
   button: {
+    width: "100%",
     backgroundColor: "#F28C6F",
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 12,
   },
 
   buttonText: {
     color: "#ffffff",
+    fontSize: 16,
     fontWeight: "600",
   },
 
   secondaryButton: {
-    paddingVertical: 14,
+    width: "100%",
+    paddingVertical: 16,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#666",
-    borderRadius: 8,
+    borderColor: "#004D40",
+    borderRadius: 12,
+    marginBottom: 20,
   },
 
   secondaryButtonText: {
+    color: "#004D40",
+    fontSize: 16,
     fontWeight: "600",
   },
-
+  
   summaryCard: {
+    width: "100%",
     padding: 20,
-    borderRadius: 16,
-    backgroundColor: "#fff",
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
     marginBottom: 20,
   },
 
@@ -346,8 +369,9 @@ const styles = StyleSheet.create({
   },
 
   balance: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "700",
+    color: "#004D40",
     marginBottom: 12,
   },
 
@@ -403,5 +427,64 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 8,
+  },
+
+  header: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    backgroundColor: "#004D40",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+  },
+
+  headerIcon: {
+    fontSize: 30,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+
+  profile: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#004D40",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  profileText: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  summaryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+
+  greeting: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#004D40",
+    marginBottom: 4,
+  },
+
+  accountLabel: {
+    fontSize: 14,
+  },
+
+  expandIcon: {
+    fontSize: 18,
+  },
+
+  totalsRow: {
+    gap: 4,
   },
 });

@@ -59,7 +59,7 @@ export default function TransactionsScreen() {
     );
   });
 
-  const PAGE_SIZE = 2;
+  const PAGE_SIZE = 10;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const visibleTransactions = filteredTransactions.slice(
