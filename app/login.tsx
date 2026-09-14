@@ -135,7 +135,11 @@ export default function LoginScreen() {
           )}
 
           <Pressable
-            style={({ pressed }) => getPressedFeedbackStyle(pressed)}
+            style={({ pressed }) => [
+              styles.forgotPasswordButton,
+              getPressedFeedbackStyle(pressed),
+            ]}
+            hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="Esqueci a senha"
             onPress={handleForgotPassword}
@@ -167,7 +171,11 @@ export default function LoginScreen() {
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => getPressedFeedbackStyle(pressed)}
+            style={({ pressed }) => [
+              styles.createAccountButton,
+              getPressedFeedbackStyle(pressed),
+            ]}
+            hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="Criar uma nova conta"
             onPress={() => router.push("/register")}
@@ -218,8 +226,6 @@ const styles = StyleSheet.create({
   forgotPassword: {
     color: "#2E7D6B",
     textDecorationLine: "underline",
-    marginBottom: 20,
-    alignSelf: "flex-start",
   },
 
   createAccount: {
@@ -227,6 +233,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     textAlign: "center",
+  },
+
+  forgotPasswordButton: {
+    alignSelf: "flex-start",
+    justifyContent: "center",
+    minHeight: 44,
+    marginBottom: 20,
+  },
+
+  createAccountButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
     marginTop: 16,
   },
 

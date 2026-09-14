@@ -190,7 +190,11 @@ export default function RegisterScreen() {
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => getPressedFeedbackStyle(pressed)}
+            style={({ pressed }) => [
+              styles.backButton,
+              getPressedFeedbackStyle(pressed),
+            ]}
+            hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="Voltar para o login"
             onPress={() => router.back()}
@@ -270,5 +274,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textDecorationLine: "underline",
     textAlign: "center",
+  },
+
+  backButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
   },
 });
