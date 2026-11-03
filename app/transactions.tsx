@@ -420,7 +420,7 @@ export default function TransactionsScreen() {
                 Carregando mais transações...
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
         ListEmptyComponent={
           <Text style={styles.emptyText}>Nenhuma transação encontrada.</Text>

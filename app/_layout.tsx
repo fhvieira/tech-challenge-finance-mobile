@@ -13,6 +13,7 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             headerBackTitle: "Voltar",
+            headerTransparent: false,
           }}
         >
           <Stack.Screen
