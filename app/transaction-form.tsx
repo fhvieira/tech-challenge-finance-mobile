@@ -1,7 +1,6 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { Timestamp } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useEffect, useState } from "react";
 import {
@@ -69,7 +68,7 @@ export default function TransactionFormScreen() {
       setDescription(transaction.description);
 
       if (transaction.date) {
-        setDate(transaction.date.toDate());
+        setDate(transaction.date);
       }
     });
 
@@ -125,7 +124,7 @@ export default function TransactionFormScreen() {
       amount: numericAmount,
       category: category.trim(),
       description: description.trim(),
-      date: Timestamp.fromDate(date),
+      date,
       receiptUrl,
     };
 

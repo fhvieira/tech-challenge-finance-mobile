@@ -1,11 +1,15 @@
 import { Stack } from "expo-router";
 import { AuthProvider } from "../contexts/AuthContext";
 import { TransactionsProvider } from "../contexts/TransactionsContext";
+import { db } from "../firebaseConfig";
+import { FirebaseTransactionRepository } from "../src/infrastructure/repositories/FirebaseTransactionRepository";
+
+const transactionRepository = new FirebaseTransactionRepository(db);
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <TransactionsProvider>
+      <TransactionsProvider repository={transactionRepository}>
         <Stack
           screenOptions={{
             headerBackTitle: "Voltar",

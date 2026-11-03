@@ -51,7 +51,7 @@ export default function TransactionsScreen() {
     const matchesMaxAmount =
       !maxAmountFilter || transaction.amount <= maxAmount;
 
-    const transactionDate = transaction.date?.toDate();
+    const transactionDate = transaction.date;
 
     const matchesStartDate =
       !startDateFilter ||
@@ -370,7 +370,7 @@ export default function TransactionsScreen() {
 
               {transaction.date && (
                 <Text style={styles.transactionDate}>
-                  {formatDate(transaction.date.toDate())}
+                  {formatDate(transaction.date)}
                 </Text>
               )}
             </View>
