@@ -4,6 +4,7 @@ import { TransactionsProvider } from "../contexts/TransactionsContext";
 import { db } from "../firebaseConfig";
 import { CreateTransaction } from "../src/application/use-cases/CreateTransaction";
 import { DeleteTransaction } from "../src/application/use-cases/DeleteTransaction";
+import { GetTransactionById } from "../src/application/use-cases/GetTransactionById";
 import { ObserveTransactions } from "../src/application/use-cases/ObserveTransactions";
 import { UpdateTransaction } from "../src/application/use-cases/UpdateTransaction";
 import { FirebaseTransactionRepository } from "../src/infrastructure/repositories/FirebaseTransactionRepository";
@@ -14,6 +15,7 @@ const transactionUseCases = {
   update: new UpdateTransaction(transactionRepository),
   delete: new DeleteTransaction(transactionRepository),
   observe: new ObserveTransactions(transactionRepository),
+  getById: new GetTransactionById(transactionRepository),
 };
 
 export default function RootLayout() {

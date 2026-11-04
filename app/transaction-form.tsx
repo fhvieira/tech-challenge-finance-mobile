@@ -4,6 +4,7 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -19,6 +20,7 @@ import { formValidationStyles } from "../constants/formValidationStyles";
 import { getPressedFeedbackStyle } from "../constants/pressableFeedback";
 import { useAuth } from "../contexts/AuthContext";
 import { storage } from "../firebaseConfig";
+import type { Transaction } from "../src/domain/entities/Transaction";
 
 import { useTransactions } from "../contexts/TransactionsContext";
 
@@ -28,52 +30,141 @@ type TransactionFormErrors = {
 };
 
 export default function TransactionFormScreen() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { id } = useLocalSearchParams<{ id?: string }>();
+
+  return (
+    <TransactionEditor
+      key={JSON.stringify([user?.uid ?? null, id ?? null])}
+      id={id}
+      userId={user?.uid ?? null}
+      authLoading={loading}
+    />
+  );
+}
+
+type TransactionLoadState =
+  | { status: "loading" }
+  | { status: "ready"; transaction: Transaction | null }
+  | { status: "not-found" }
+  | { status: "error" };
+
+function TransactionEditor({ id, userId, authLoading }: {
+  id?: string;
+  userId: string | null;
+  authLoading: boolean;
+}) {
+  const { getTransactionById } = useTransactions();
+  const [loadState, setLoadState] = useState<TransactionLoadState>(
+    id ? { status: "loading" } : { status: "ready", transaction: null }
+  );
+  const [requestVersion, setRequestVersion] = useState(0);
+
+  useEffect(() => {
+    if (!id || !userId) return;
+
+    let active = true;
+
+    async function loadTransaction(transactionId: string) {
+      try {
+        const transaction = await getTransactionById(transactionId);
+        if (!active) return;
+
+        setLoadState(transaction
+          ? { status: "ready", transaction }
+          : { status: "not-found" });
+      } catch {
+        if (active) setLoadState({ status: "error" });
+      }
+    }
+
+    void loadTransaction(id);
+    return () => { active = false; };
+  }, [id, userId, getTransactionById, requestVersion]);
+
+  if (authLoading || (userId && loadState.status === "loading")) {
+    return <TransactionFormStatus id={id} loading message="Carregando transação..." />;
+  }
+
+  if (!userId) {
+    return <TransactionFormStatus id={id} message="Entre na sua conta para continuar." />;
+  }
+
+  if (loadState.status === "not-found") {
+    return <TransactionFormStatus id={id} message="Transação não encontrada." />;
+  }
+
+  if (loadState.status === "error") {
+    return <TransactionFormStatus
+      id={id}
+      message="Não foi possível carregar a transação. Tente novamente."
+      onRetry={() => {
+        setLoadState({ status: "loading" });
+        setRequestVersion((current) => current + 1);
+      }}
+    />;
+  }
+
+  if (loadState.status !== "ready") return null;
+
+  return <TransactionForm id={id} transaction={loadState.transaction} />;
+}
+
+function TransactionFormStatus({ id, loading = false, message, onRetry }: {
+  id?: string;
+  loading?: boolean;
+  message: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <View style={styles.container}>
+      <Stack.Screen options={{
+        title: id ? "Editar transação" : "Nova transação",
+        headerBackTitle: id ? "Transações" : "Início",
+      }} />
+      <View style={styles.formCard}>
+        {loading && <ActivityIndicator accessibilityLabel="Carregando transação" />}
+        <Text accessibilityLiveRegion="polite">{message}</Text>
+        {onRetry && (
+          <Pressable style={styles.receiptButton} onPress={onRetry} accessibilityRole="button">
+            <Text style={styles.receiptButtonText}>Tentar novamente</Text>
+          </Pressable>
+        )}
+        {!loading && (
+          <Pressable style={styles.receiptButton} onPress={() => router.back()} accessibilityRole="button">
+            <Text style={styles.receiptButtonText}>Voltar</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function TransactionForm({ id, transaction }: {
+  id?: string;
+  transaction: Transaction | null;
+}) {
+  const { user } = useAuth();
 
   const [receipt, setReceipt] =
     useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
   const {
-    transactions,
     addTransaction,
     updateTransaction,
   } = useTransactions();
 
   const [type, setType] =
-    useState<"income" | "expense">("expense");
+    useState<"income" | "expense">(transaction?.type ?? "expense");
 
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("");
-  const [description, setDescription] = useState("");
-  const [date, setDate] = useState(new Date());
+  const [amount, setAmount] = useState(transaction?.amount.toString() ?? "");
+  const [category, setCategory] = useState(transaction?.category ?? "");
+  const [description, setDescription] = useState(transaction?.description ?? "");
+  const [date, setDate] = useState(transaction?.date ?? new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [errors, setErrors] = useState<TransactionFormErrors>({});
 
   const isEditing = Boolean(id);
-
-  useEffect(() => {
-    if (!id) return;
-
-    const transaction = transactions.find(
-      (item) => item.id === id
-    );
-
-    if (!transaction) return;
-
-    const frame = requestAnimationFrame(() => {
-      setType(transaction.type);
-      setAmount(transaction.amount.toString());
-      setCategory(transaction.category);
-      setDescription(transaction.description);
-
-      if (transaction.date) {
-        setDate(transaction.date);
-      }
-    });
-
-    return () => cancelAnimationFrame(frame);
-  }, [id, transactions]);
 
   function handleAmountChange(value: string) {
     setAmount(value);
@@ -111,13 +202,9 @@ export default function TransactionFormScreen() {
       return;
     }
 
-    const existingTransaction = id
-      ? transactions.find((item) => item.id === id)
-      : undefined;
-
     const receiptUrl = receipt
       ? await uploadReceipt()
-      : existingTransaction?.receiptUrl ?? null;
+      : transaction?.receiptUrl ?? null;
 
     const transactionData = {
       type,
