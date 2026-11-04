@@ -6,8 +6,18 @@ import {
   useState,
 } from "react";
 import type { Transaction, TransactionInput } from "../src/domain/entities/Transaction";
-import type { TransactionRepository } from "../src/domain/repositories/TransactionRepository";
+import type { CreateTransaction } from "../src/application/use-cases/CreateTransaction";
+import type { DeleteTransaction } from "../src/application/use-cases/DeleteTransaction";
+import type { ObserveTransactions } from "../src/application/use-cases/ObserveTransactions";
+import type { UpdateTransaction } from "../src/application/use-cases/UpdateTransaction";
 import { useAuth } from "./AuthContext";
+
+type TransactionUseCases = {
+  create: CreateTransaction;
+  update: UpdateTransaction;
+  delete: DeleteTransaction;
+  observe: ObserveTransactions;
+};
 
 type TransactionsContextType = {
   transactions: Transaction[];
@@ -30,26 +40,39 @@ const TransactionsContext = createContext<TransactionsContextType>({
 
 export function TransactionsProvider({
   children,
-  repository,
+  useCases,
 }: {
   children: ReactNode;
-  repository: TransactionRepository;
+  useCases: TransactionUseCases;
 }) {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const { user } = useAuth();
+  const userId = user?.uid ?? null;
+  const [transactionState, setTransactionState] = useState<{
+    userId: string | null;
+    transactions: Transaction[];
+  }>({ userId, transactions: [] });
+
+  // Reset before children render for another UID, including logout.
+  if (transactionState.userId !== userId) {
+    setTransactionState({ userId, transactions: [] });
+  }
+
+  const transactions = transactionState.userId === userId
+    ? transactionState.transactions
+    : [];
 
   async function addTransaction(
     transaction: TransactionInput
   ) {
     if (!user) return;
 
-    await repository.create(user.uid, transaction);
+    await useCases.create.execute(user.uid, transaction);
   }
 
   async function deleteTransaction(id: string) {
     if (!user) return;
 
-    await repository.delete(user.uid, id);
+    await useCases.delete.execute(user.uid, id);
   }
 
   async function updateTransaction(
@@ -58,17 +81,26 @@ export function TransactionsProvider({
   ) {
     if (!user) return;
 
-    await repository.update(user.uid, id, transaction);
+    await useCases.update.execute(user.uid, id, transaction);
   }
 
   useEffect(() => {
-    if (!user) {
-      setTransactions([]);
-      return;
-    }
+    if (!userId) return;
 
-    return repository.subscribe(user.uid, setTransactions);
-  }, [user, repository]);
+    let active = true;
+    const unsubscribe = useCases.observe.execute(userId, (transactions) => {
+      if (!active) return;
+
+      setTransactionState((current) => current.userId === userId
+        ? { userId, transactions }
+        : current);
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [userId, useCases]);
 
   return (
     <TransactionsContext.Provider
