@@ -1,6 +1,8 @@
 import type { Transaction, TransactionInput } from "../entities/Transaction";
+import type { FinancialSummary } from "../entities/FinancialSummary";
 
 export interface TransactionRepository {
+  getFinancialSummary(userId: string): Promise<FinancialSummary>;
   getById(userId: string, id: string): Promise<Transaction | null>;
   subscribe(
     userId: string,

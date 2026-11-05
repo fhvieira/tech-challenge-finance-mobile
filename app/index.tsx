@@ -1,8 +1,9 @@
-import { Redirect, router } from "expo-router";
+import { Redirect, router, useFocusEffect } from "expo-router";
 import { signOut } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Animated,
+  AppState,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -23,15 +24,15 @@ export default function HomeScreen() {
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(true);
 
   const { user, loading } = useAuth();
-  const { transactions } = useTransactions();
+  const {
+    financialSummary,
+    financialSummaryError,
+    isFinancialSummaryStale,
+    refreshFinancialSummary,
+  } = useTransactions();
 
-  const totalIncome = transactions
-    .filter((transaction) => transaction.type === "income")
-    .reduce((total, transaction) => total + transaction.amount, 0);
-
-  const totalExpense = transactions
-    .filter((transaction) => transaction.type === "expense")
-    .reduce((total, transaction) => total + transaction.amount, 0);
+  const totalIncome = financialSummary?.totalIncome ?? 0;
+  const totalExpense = financialSummary?.totalExpense ?? 0;
 
   const balance = totalIncome - totalExpense;
 
@@ -44,7 +45,7 @@ export default function HomeScreen() {
 
   const incomePercentage = (totalIncome / maxValue) * 100;
   const expensePercentage = (totalExpense / maxValue) * 100;
-  const hasTransactions = transactions.length > 0;
+  const hasTransactions = (financialSummary?.transactionCount ?? 0) > 0;
   const remainingIncomePercentage =
     totalIncome > 0 ? (Math.max(balance, 0) / totalIncome) * 100 : 0;
   const financialInsight = !hasTransactions
@@ -66,6 +67,19 @@ export default function HomeScreen() {
       useNativeDriver: false,
     }).start();
   }, [chartAnimation, totalIncome, totalExpense]);
+
+  useFocusEffect(useCallback(() => {
+    void refreshFinancialSummary();
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active" && previousState !== "active") {
+        void refreshFinancialSummary();
+      }
+      previousState = nextState;
+    });
+
+    return () => subscription.remove();
+  }, [refreshFinancialSummary]));
 
   function toggleSection(
     isExpanded: boolean,
@@ -131,6 +145,23 @@ export default function HomeScreen() {
     return <Redirect href="/login" />;
   }
 
+  if (!financialSummary) {
+    return (
+      <View style={styles.container}>
+        <Text accessibilityLiveRegion="polite">{financialSummaryError ?? "Carregando..."}</Text>
+        {financialSummaryError && (
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => { void refreshFinancialSummary(); }}
+            accessibilityRole="button"
+          >
+            <Text style={styles.secondaryButtonText}>Tentar novamente</Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -154,6 +185,17 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.summaryCard}>
+          {financialSummaryError && isFinancialSummaryStale && (
+            <Pressable
+              onPress={() => { void refreshFinancialSummary(); }}
+              accessibilityRole="button"
+              accessibilityLabel="Totais desatualizados. Tentar atualizar novamente"
+            >
+              <Text accessibilityLiveRegion="polite">
+                Totais desatualizados. Toque para tentar novamente.
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             style={({ pressed }) => getPressedFeedbackStyle(pressed)}
             onPress={toggleSummary}

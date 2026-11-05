@@ -1,0 +1,642 @@
+{
+  "description": "Dados sintéticos locais; não representam a conta no iPhone.",
+  "fixtures": {
+    "seed": {
+      "transactions": [
+        {
+          "type": "income",
+          "amount": 5350,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 5200,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 1520,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 5500,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 930,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 5350,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 1430,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 5200,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 5500,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 1340,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 5350,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 810,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 5200,
+          "createdAt": 1
+        },
+        {
+          "type": "income",
+          "amount": 1250,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 350.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 74.98,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 142,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 1858,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 231.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 127.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 320.1,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 86.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 105.95,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 57.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 212.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 51.88,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 282,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 1603,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 174.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 390,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 203.1,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 65.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 41.45,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 46.4,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 534.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 28.78,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 222,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 2198,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 117.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 277.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 476.1,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 44.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 191.95,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 35.6,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 396.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 82.68,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 162,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 1943,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 250.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 165,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 359.1,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 23.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 127.45,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 60.8,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 258.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 59.58,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 302,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 1688,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 193.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 52.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 242.1,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 72.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 62.95,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 50,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 580.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 36.48,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 242,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 2283,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 136.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 315,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 125.1,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 51.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 213.45,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 39.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 442.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 90.38,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 182,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 2028,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 79.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 202.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 398.1,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 30.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 148.95,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 64.4,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 304.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 67.28,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 122,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 1773,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 212.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 90,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 281.1,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 79.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 84.45,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 53.6,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 626.2,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 44.18,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 262,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 1518,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 155.5,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 352.5,
+          "createdAt": 1
+        }
+      ],
+      "expected": {
+        "transactionCount": 100,
+        "totalIncome": 49930,
+        "totalExpense": 30814.220000000005,
+        "balance": 19115.779999999995,
+        "incomePercentage": 100,
+        "expensePercentage": 61.71484077708793,
+        "remainingIncomePercentage": 38.28515922291207,
+        "financialInsight": "Você manteve 38% das entradas após as saídas."
+      }
+    },
+    "empty": {
+      "transactions": [],
+      "expected": {
+        "transactionCount": 0,
+        "totalIncome": 0,
+        "totalExpense": 0,
+        "balance": 0,
+        "incomePercentage": 0,
+        "expensePercentage": 0,
+        "remainingIncomePercentage": 0,
+        "financialInsight": "Cadastre sua primeira transação para começar a acompanhar sua vida financeira."
+      }
+    },
+    "income": {
+      "transactions": [
+        {
+          "type": "income",
+          "amount": 100,
+          "createdAt": 1
+        }
+      ],
+      "expected": {
+        "transactionCount": 1,
+        "totalIncome": 100,
+        "totalExpense": 0,
+        "balance": 100,
+        "incomePercentage": 100,
+        "expensePercentage": 0,
+        "remainingIncomePercentage": 100,
+        "financialInsight": "Você manteve 100% das entradas após as saídas."
+      }
+    },
+    "expense": {
+      "transactions": [
+        {
+          "type": "expense",
+          "amount": 40,
+          "createdAt": 1
+        }
+      ],
+      "expected": {
+        "transactionCount": 1,
+        "totalIncome": 0,
+        "totalExpense": 40,
+        "balance": -40,
+        "incomePercentage": 0,
+        "expensePercentage": 100,
+        "remainingIncomePercentage": 0,
+        "financialInsight": "Você registrou saídas, mas ainda não há entradas neste período."
+      }
+    },
+    "mixed": {
+      "transactions": [
+        {
+          "type": "income",
+          "amount": 100,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 40,
+          "createdAt": 1
+        }
+      ],
+      "expected": {
+        "transactionCount": 2,
+        "totalIncome": 100,
+        "totalExpense": 40,
+        "balance": 60,
+        "incomePercentage": 100,
+        "expensePercentage": 40,
+        "remainingIncomePercentage": 60,
+        "financialInsight": "Você manteve 60% das entradas após as saídas."
+      }
+    },
+    "negative": {
+      "transactions": [
+        {
+          "type": "income",
+          "amount": 100,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 140,
+          "createdAt": 1
+        }
+      ],
+      "expected": {
+        "transactionCount": 2,
+        "totalIncome": 100,
+        "totalExpense": 140,
+        "balance": -40,
+        "incomePercentage": 71.42857142857143,
+        "expensePercentage": 100,
+        "remainingIncomePercentage": 0,
+        "financialInsight": "Suas saídas estão acima das entradas. Vale revisar os próximos gastos."
+      }
+    },
+    "zero": {
+      "transactions": [
+        {
+          "type": "income",
+          "amount": 10,
+          "createdAt": 1
+        },
+        {
+          "type": "expense",
+          "amount": 10,
+          "createdAt": 1
+        }
+      ],
+      "expected": {
+        "transactionCount": 2,
+        "totalIncome": 10,
+        "totalExpense": 10,
+        "balance": 0,
+        "incomePercentage": 100,
+        "expensePercentage": 100,
+        "remainingIncomePercentage": 0,
+        "financialInsight": "Suas entradas e saídas estão equilibradas neste momento."
+      }
+    }
+  }
+}

@@ -1,22 +1,50 @@
 import {
   addDoc,
   collection,
+  count,
   deleteDoc,
   doc,
   getDoc,
+  getAggregateFromServer,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  sum,
   Timestamp,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import type { DocumentData, Firestore } from "firebase/firestore";
 import type { Transaction, TransactionInput } from "../../domain/entities/Transaction";
 import type { TransactionRepository } from "../../domain/repositories/TransactionRepository";
+import type { FinancialSummary } from "../../domain/entities/FinancialSummary";
 
 export class FirebaseTransactionRepository implements TransactionRepository {
   constructor(private readonly db: Firestore) {}
+
+  async getFinancialSummary(userId: string): Promise<FinancialSummary> {
+    // Keep the same document-existence constraint as the reactive list.
+    const baseQuery = query(
+      collection(this.db, "users", userId, "transactions"),
+      orderBy("createdAt", "desc")
+    );
+    const [total, income, expense] = await Promise.all([
+      getAggregateFromServer(baseQuery, { transactionCount: count() }),
+      getAggregateFromServer(query(baseQuery, where("type", "==", "income")), {
+        totalIncome: sum("amount"),
+      }),
+      getAggregateFromServer(query(baseQuery, where("type", "==", "expense")), {
+        totalExpense: sum("amount"),
+      }),
+    ]);
+
+    return {
+      transactionCount: total.data().transactionCount,
+      totalIncome: income.data().totalIncome,
+      totalExpense: expense.data().totalExpense,
+    };
+  }
 
   async getById(userId: string, id: string): Promise<Transaction | null> {
     const snapshot = await getDoc(doc(this.db, "users", userId, "transactions", id));

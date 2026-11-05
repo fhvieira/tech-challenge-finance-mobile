@@ -10,6 +10,9 @@ import type { Transaction, TransactionInput } from "../src/domain/entities/Trans
 import type { CreateTransaction } from "../src/application/use-cases/CreateTransaction";
 import type { DeleteTransaction } from "../src/application/use-cases/DeleteTransaction";
 import type { GetTransactionById } from "../src/application/use-cases/GetTransactionById";
+import type { GetFinancialSummary } from "../src/application/use-cases/GetFinancialSummary";
+import type { FinancialSummary } from "../src/domain/entities/FinancialSummary";
+import { useFinancialSummary } from "../hooks/use-financial-summary";
 import type { ObserveTransactions } from "../src/application/use-cases/ObserveTransactions";
 import type { UpdateTransaction } from "../src/application/use-cases/UpdateTransaction";
 import { useAuth } from "./AuthContext";
@@ -20,9 +23,15 @@ type TransactionUseCases = {
   delete: DeleteTransaction;
   observe: ObserveTransactions;
   getById: GetTransactionById;
+  getFinancialSummary: GetFinancialSummary;
 };
 
 type TransactionsContextType = {
+  financialSummary: FinancialSummary | null;
+  isFinancialSummaryLoading: boolean;
+  financialSummaryError: string | null;
+  isFinancialSummaryStale: boolean;
+  refreshFinancialSummary: () => Promise<void>;
   transactions: Transaction[];
   getTransactionById: (id: string) => Promise<Transaction | null>;
   addTransaction: (
@@ -36,6 +45,11 @@ type TransactionsContextType = {
 };
 
 const TransactionsContext = createContext<TransactionsContextType>({
+  financialSummary: null,
+  isFinancialSummaryLoading: false,
+  financialSummaryError: null,
+  isFinancialSummaryStale: false,
+  refreshFinancialSummary: async () => {},
   transactions: [],
   getTransactionById: async () => null,
   addTransaction: async () => {},
@@ -52,6 +66,10 @@ export function TransactionsProvider({
 }) {
   const { user } = useAuth();
   const userId = user?.uid ?? null;
+  const {
+    invalidateFinancialSummary,
+    ...summaryState
+  } = useFinancialSummary(userId, useCases.getFinancialSummary);
   const [transactionState, setTransactionState] = useState<{
     userId: string | null;
     transactions: Transaction[];
@@ -78,12 +96,14 @@ export function TransactionsProvider({
     if (!user) return;
 
     await useCases.create.execute(user.uid, transaction);
+    void invalidateFinancialSummary();
   }
 
   async function deleteTransaction(id: string) {
     if (!user) return;
 
     await useCases.delete.execute(user.uid, id);
+    void invalidateFinancialSummary();
   }
 
   async function updateTransaction(
@@ -93,6 +113,7 @@ export function TransactionsProvider({
     if (!user) return;
 
     await useCases.update.execute(user.uid, id, transaction);
+    void invalidateFinancialSummary();
   }
 
   useEffect(() => {
@@ -116,6 +137,7 @@ export function TransactionsProvider({
   return (
     <TransactionsContext.Provider
       value={{
+        ...summaryState,
         transactions,
         getTransactionById,
         addTransaction,
