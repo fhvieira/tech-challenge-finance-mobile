@@ -134,6 +134,16 @@ users/{uid}/transactions/{transactionId}
 
 Cada usuário possui sua própria subcoleção. A aplicação consulta as transações por `createdAt` em ordem decrescente.
 
+O arquivo `firestore.indexes.json`, referenciado por `firebase.json`, define o índice composto de `transactions` com escopo `COLLECTION`: `type ASCENDING`, `createdAt DESCENDING` e `amount DESCENDING`. Ele atende às agregações financeiras de entradas e saídas do dashboard, que filtram por tipo, ordenam por criação e somam o valor.
+
+Para publicar somente os índices, com a Firebase CLI instalada e autenticada:
+
+```bash
+firebase deploy --only firestore:indexes --project tech-challenge-finance-mobile
+```
+
+Após a publicação, aguarde o índice ficar ativo no Firebase Console antes de validar as agregações. Esse comando não publica regras de segurança.
+
 ### Firebase Storage
 
 Comprovantes são enviados para:
