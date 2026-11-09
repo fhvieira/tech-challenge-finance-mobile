@@ -60,8 +60,7 @@ export default function LoginScreen() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       router.replace("/");
-    } catch (error) {
-      console.log(error);
+    } catch {
       setFormError("Não foi possível entrar. Confira seu email e senha.");
     }
   }

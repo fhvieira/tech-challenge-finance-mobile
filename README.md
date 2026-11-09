@@ -190,6 +190,28 @@ service firebase.storage {
 }
 ```
 
+### Regras de segurança versionadas
+
+As regras de Firestore (`firestore.rules`) e Storage (`storage.rules`) estão versionadas e referenciadas em `firebase.json`, preservando a configuração dos índices. Os arquivos foram copiados da configuração publicada no Firebase Console, conforme as regras fornecidas para este projeto, sem alteração de lógica.
+
+Nas operações protegidas pelas regras, cada usuário autenticado só pode acessar seus próprios caminhos: `users/{uid}/transactions/{transactionId}` no Firestore e `users/{uid}/receipts/{fileName}` no Storage. Alterações futuras precisam ser revisadas e publicadas explicitamente; modificar os arquivos locais não altera o Firebase remoto.
+
+URLs de comprovantes geradas com tokens de download exigem cuidado: quem possuir o link poderá acessar o arquivo. Esses links devem ser tratados como dados sensíveis, sem publicação ou registro em logs; a proteção dos caminhos por UID não deve ser interpretada como uma nova checagem de autenticação em cada uso do link.
+
+### Persistência local segura da autenticação
+
+No aplicativo nativo, o Firebase Auth usa `getReactNativePersistence()` com o adaptador `SecureAuthStorage`, baseado em `expo-secure-store` compatível com SDK 58 e Expo Go. O Firebase continua responsável por serializar a sessão, renovar tokens e executar logout. O adaptador utiliza `getItemAsync()`, `setItemAsync()` e `deleteItemAsync()`, sem biometria obrigatória. A versão Web mantém a inicialização anterior.
+
+As chaves são codificadas por unidades UTF-16 de largura fixa, com namespace do projeto e do Firebase App, de forma determinística e sem colisões. Não há fallback para guardar tokens no AsyncStorage, nem truncamento ou fragmentação do conteúdo. Valores grandes podem ser rejeitados pelo armazenamento nativo; essa condição é tratada como erro explícito, sem registrar o conteúdo ou mensagens nativas potencialmente sensíveis.
+
+**Transição:** não há migração da sessão antiga. Na preparação, são removidas somente as chaves legadas `firebase:authUser:<apiKey>:<appName>`, `firebase:persistence:<apiKey>:<appName>` e `firebase:redirectUser:<apiKey>:<appName>` deste aplicativo no AsyncStorage. Nenhuma outra chave é apagada e nenhum registro antigo é lido para restaurar login. O usuário fará login novamente uma única vez; depois, a sessão será restaurada pelo SecureStore. Logout remove a sessão segura e eventual registro legado correspondente. Transações e comprovantes remotos não são modificados.
+
+O adaptador e seu status são reutilizados durante Fast Refresh. Na primeira atualização sobre uma instância antiga de Auth, o aplicativo exige reinício completo, evitando apresentar a persistência antiga como segura. Feche e reabra o projeto no Expo Go para validar a transição; Fast Refresh isoladamente não é suficiente.
+
+Falhas na limpeza legada, disponibilidade ou operações do SecureStore são sinalizadas na interface. O fluxo normal é bloqueado e os providers internos são desmontados, limpando seus stores em memória, até reiniciar o aplicativo e concluir a preparação. Isso também impede continuar silenciosamente caso o teste de disponibilidade do Firebase tente selecionar persistência apenas em memória. O armazenamento no Keychain do iOS pode sobreviver à reinstalação; desinstalar não substitui testar o logout.
+
+Validação: `node --test tests/secure-auth-storage.test.cjs` exercita o contrato real da persistência React Native do Firebase com um backend seguro simulado. No iPhone, verificar o primeiro login após reinício completo, fechar/reabrir mantendo a sessão, renovação normal da sessão, logout seguido de reinício e troca entre duas contas sem reaparecimento dos dados anteriores. Os testes locais não comprovam limites de tamanho ou disponibilidade do Keychain real; falhas nativas devem aparecer explicitamente, sem fallback para texto puro.
+
 ## Dashboard
 
 O dashboard exibe saldo, total de entradas, total de despesas, comparação visual entre entradas e despesas e uma análise financeira simples. As seções têm transições de expandir/recolher, e o gráfico usa barras animadas para representar a proporção entre entradas e despesas.

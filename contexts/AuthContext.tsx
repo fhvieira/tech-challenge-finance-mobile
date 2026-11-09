@@ -5,8 +5,10 @@ import {
     useContext,
     useEffect,
     useState,
+    useSyncExternalStore,
 } from "react";
-import { auth } from "../firebaseConfig";
+import { Text, View } from "react-native";
+import { auth, authPersistenceStatus } from "../firebaseConfig";
 
 type AuthContextType = {
   user: User | null;
@@ -19,6 +21,9 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const storageState = useSyncExternalStore(
+    authPersistenceStatus.subscribe, authPersistenceStatus.getSnapshot, authPersistenceStatus.getSnapshot
+  );
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -32,8 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {children}
+    <AuthContext.Provider value={{ user: storageState.ready ? user : null, loading: loading || !storageState.ready }}>
+      {storageState.error ? (
+        <View style={{ flex: 1, padding: 24, justifyContent: "center" }}>
+          <Text accessibilityRole="alert" accessibilityLiveRegion="assertive">{storageState.error}</Text>
+          <Text>Feche e reabra o aplicativo para tentar novamente. A sessão antiga não será recuperada.</Text>
+        </View>
+      ) : children}
     </AuthContext.Provider>
   );
 }

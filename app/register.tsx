@@ -74,8 +74,7 @@ export default function RegisterScreen() {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       router.replace("/");
-    } catch (error) {
-      console.log(error);
+    } catch {
       setFormError("Não foi possível criar sua conta. Confira os dados e tente novamente.");
     }
   }
