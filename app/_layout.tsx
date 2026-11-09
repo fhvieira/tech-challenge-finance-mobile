@@ -6,7 +6,8 @@ import { CreateTransaction } from "../src/application/use-cases/CreateTransactio
 import { DeleteTransaction } from "../src/application/use-cases/DeleteTransaction";
 import { GetTransactionById } from "../src/application/use-cases/GetTransactionById";
 import { GetFinancialSummary } from "../src/application/use-cases/GetFinancialSummary";
-import { ObserveTransactions } from "../src/application/use-cases/ObserveTransactions";
+import { GetTransactionsPage } from "../src/application/use-cases/GetTransactionsPage";
+import { GetTransactionsCount } from "../src/application/use-cases/GetTransactionsCount";
 import { UpdateTransaction } from "../src/application/use-cases/UpdateTransaction";
 import { FirebaseTransactionRepository } from "../src/infrastructure/repositories/FirebaseTransactionRepository";
 
@@ -15,9 +16,10 @@ const transactionUseCases = {
   create: new CreateTransaction(transactionRepository),
   update: new UpdateTransaction(transactionRepository),
   delete: new DeleteTransaction(transactionRepository),
-  observe: new ObserveTransactions(transactionRepository),
   getById: new GetTransactionById(transactionRepository),
   getFinancialSummary: new GetFinancialSummary(transactionRepository),
+  getPage: new GetTransactionsPage(transactionRepository, { candidateBatchSize: 10, maxCandidateReads: 100 }),
+  getCount: new GetTransactionsCount(transactionRepository),
 };
 
 export default function RootLayout() {

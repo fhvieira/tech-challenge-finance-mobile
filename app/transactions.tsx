@@ -1,6 +1,6 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { router } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,13 +15,23 @@ import {
 import { formatCurrency, formatDate } from "../constants/formatters";
 import { getPressedFeedbackStyle } from "../constants/pressableFeedback";
 import { useTransactions } from "../contexts/TransactionsContext";
-
-const PAGE_SIZE = 10;
-const LOAD_MORE_DELAY_MS = 300;
+import type { Transaction } from "../src/domain/entities/Transaction";
 
 export default function TransactionsScreen() {
   const {
-    transactions,
+    paginatedTransactions,
+    isInitialPageLoading,
+    isNextPageLoading,
+    paginationError,
+    hasMore,
+    searchLimitReached,
+    loadFirstPage,
+    loadNextPage,
+    resetPagination,
+    transactionsCount,
+    isTransactionsCountLoading,
+    transactionsCountError,
+    refreshTransactionsCount,
     deleteTransaction,
   } = useTransactions();
 
@@ -32,48 +42,8 @@ export default function TransactionsScreen() {
   const [endDateFilter, setEndDateFilter] = useState<Date | null>(null);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const transactionsListRef = useRef<FlatList<(typeof transactions)[number]>>(null);
-  const loadMoreTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const filteredTransactions = transactions.filter((transaction) => {
-    const matchesCategory = transaction.category
-      .toLowerCase()
-      .includes(categoryFilter.trim().toLowerCase());
-
-    const minAmount = Number(minAmountFilter.replace(",", "."));
-    const maxAmount = Number(maxAmountFilter.replace(",", "."));
-
-    const matchesMinAmount =
-      !minAmountFilter || transaction.amount >= minAmount;
-
-    const matchesMaxAmount =
-      !maxAmountFilter || transaction.amount <= maxAmount;
-
-    const transactionDate = transaction.date;
-
-    const matchesStartDate =
-      !startDateFilter ||
-      (transactionDate && transactionDate >= startDateFilter);
-
-    const matchesEndDate =
-      !endDateFilter ||
-      (transactionDate && transactionDate <= endDateFilter);
-
-    return (
-      matchesCategory &&
-      matchesMinAmount &&
-      matchesMaxAmount &&
-      matchesStartDate &&
-      matchesEndDate
-    );
-  });
-
-  const visibleTransactions = filteredTransactions.slice(
-    0,
-    visibleCount
-  );
+  const transactionsListRef = useRef<FlatList<Transaction>>(null);
+  const pageRequestRef = useRef<{ load: typeof loadNextPage; request: Promise<void> } | null>(null);
 
   const hasActiveFilters =
     !!categoryFilter.trim() ||
@@ -82,42 +52,49 @@ export default function TransactionsScreen() {
     !!startDateFilter ||
     !!endDateFilter;
 
-  const counterText = `${visibleTransactions.length} de ${filteredTransactions.length} transações${hasActiveFilters ? " filtradas" : ""}`;
+  const hasCategorySearch = !!categoryFilter.trim();
+  const remoteFilters = useMemo(() => ({
+    category: categoryFilter,
+    minAmount: minAmountFilter ? Number(minAmountFilter.replace(",", ".")) : undefined,
+    maxAmount: maxAmountFilter ? Number(maxAmountFilter.replace(",", ".")) : undefined,
+    startDate: startDateFilter ?? undefined,
+    endDate: endDateFilter ?? undefined,
+  }), [categoryFilter, minAmountFilter, maxAmountFilter, startDateFilter, endDateFilter]);
 
-  function resetPagination() {
-    if (loadMoreTimeoutRef.current) {
-      clearTimeout(loadMoreTimeoutRef.current);
-      loadMoreTimeoutRef.current = null;
-    }
+  const counterText = transactionsCount !== null
+    ? `${paginatedTransactions.length} de ${transactionsCount} transações${hasActiveFilters ? " filtradas" : ""}`
+    : hasCategorySearch
+      ? `${paginatedTransactions.length} transações encontradas — pesquisa em andamento`
+      : `${paginatedTransactions.length} transações carregadas${isTransactionsCountLoading ? " (contando...)" : ""}`;
 
-    setIsLoadingMore(false);
-    setVisibleCount(PAGE_SIZE);
+  useFocusEffect(useCallback(() => {
+    void loadFirstPage(remoteFilters);
+
+    return () => {
+      pageRequestRef.current = null;
+      resetPagination();
+    };
+  }, [remoteFilters, loadFirstPage, resetPagination]));
+
+  function resetFilteredPagination() {
+    // Hide the previous query's rows immediately, before the new focus effect.
+    pageRequestRef.current = null;
+    resetPagination();
   }
 
-  useEffect(() => () => {
-    if (loadMoreTimeoutRef.current) {
-      clearTimeout(loadMoreTimeoutRef.current);
-    }
-  }, []);
-
   const handleLoadMore = useCallback(() => {
-    if (isLoadingMore || visibleCount >= filteredTransactions.length) {
-      return;
-    }
+    if (isInitialPageLoading || isNextPageLoading || paginationError || !hasMore || searchLimitReached ||
+      pageRequestRef.current?.load === loadNextPage) return;
 
-    setIsLoadingMore(true);
-
-    loadMoreTimeoutRef.current = setTimeout(() => {
-      setVisibleCount((current) =>
-        Math.min(current + PAGE_SIZE, filteredTransactions.length)
-      );
-      setIsLoadingMore(false);
-      loadMoreTimeoutRef.current = null;
-    }, LOAD_MORE_DELAY_MS);
-  }, [filteredTransactions.length, isLoadingMore, visibleCount]);
+    const pending = { load: loadNextPage, request: loadNextPage() };
+    pageRequestRef.current = pending;
+    void pending.request.finally(() => {
+      if (pageRequestRef.current === pending) pageRequestRef.current = null;
+    });
+  }, [isInitialPageLoading, isNextPageLoading, paginationError, hasMore, searchLimitReached, loadNextPage]);
 
   function clearFilters() {
-    resetPagination();
+    resetFilteredPagination();
     setCategoryFilter("");
     setMinAmountFilter("");
     setMaxAmountFilter("");
@@ -126,27 +103,27 @@ export default function TransactionsScreen() {
   }
 
   function updateCategoryFilter(value: string) {
-    resetPagination();
+    resetFilteredPagination();
     setCategoryFilter(value);
   }
 
   function updateMinAmountFilter(value: string) {
-    resetPagination();
+    resetFilteredPagination();
     setMinAmountFilter(value);
   }
 
   function updateMaxAmountFilter(value: string) {
-    resetPagination();
+    resetFilteredPagination();
     setMaxAmountFilter(value);
   }
 
   function updateStartDateFilter(value: Date) {
-    resetPagination();
+    resetFilteredPagination();
     setStartDateFilter(value);
   }
 
   function updateEndDateFilter(value: Date) {
-    resetPagination();
+    resetFilteredPagination();
     setEndDateFilter(value);
   }
 
@@ -203,7 +180,7 @@ export default function TransactionsScreen() {
               </Text>
 
               <Text style={styles.filterCount}>
-                {filteredTransactions.length}
+                {transactionsCount ?? "—"}
               </Text>
             </View>
           </Pressable>
@@ -213,7 +190,7 @@ export default function TransactionsScreen() {
 
       <FlatList
         ref={transactionsListRef}
-        data={visibleTransactions}
+        data={paginatedTransactions}
         keyExtractor={(item) => item.id}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
@@ -224,6 +201,19 @@ export default function TransactionsScreen() {
         onTouchStart={Keyboard.dismiss}
         ListHeaderComponent={
           <View style={[styles.card, styles.filtersCard]}>
+            {!hasCategorySearch && transactionsCountError && (
+              <View accessibilityLiveRegion="polite">
+                <Text style={styles.emptyText}>{transactionsCountError}</Text>
+                <Pressable
+                  style={({ pressed }) => [styles.clearButton, getPressedFeedbackStyle(pressed)]}
+                  onPress={() => void refreshTransactionsCount()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Tentar atualizar contagem novamente"
+                >
+                  <Text style={styles.clearButtonText}>Atualizar contagem</Text>
+                </Pressable>
+              </View>
+            )}
             <Text style={styles.label}>Filtrar por categoria</Text>
             <TextInput
               style={styles.input}
@@ -408,7 +398,7 @@ export default function TransactionsScreen() {
           </View>
         )}
         ListFooterComponent={
-          isLoadingMore ? (
+          isNextPageLoading ? (
             <View
               style={styles.loadingFooter}
               accessible
@@ -420,10 +410,43 @@ export default function TransactionsScreen() {
                 Carregando mais transações...
               </Text>
             </View>
+          ) : paginationError ? (
+            <View style={styles.card} accessibilityLiveRegion="polite">
+              <Text style={styles.emptyText}>{paginationError}</Text>
+              <Pressable
+                style={({ pressed }) => [styles.clearButton, getPressedFeedbackStyle(pressed)]}
+                onPress={() => void loadNextPage()}
+                accessibilityRole="button"
+                accessibilityLabel="Tentar carregar transações novamente"
+              >
+                <Text style={styles.clearButtonText}>Tentar novamente</Text>
+              </Pressable>
+            </View>
+          ) : searchLimitReached ? (
+            <View style={styles.card} accessibilityLiveRegion="polite">
+              <Text style={styles.emptyText}>Há mais transações para pesquisar.</Text>
+              <Pressable
+                style={({ pressed }) => [styles.clearButton, getPressedFeedbackStyle(pressed)]}
+                onPress={() => void loadNextPage()}
+                accessibilityRole="button"
+                accessibilityLabel="Continuar pesquisa de transações"
+              >
+                <Text style={styles.clearButtonText}>Continuar pesquisa</Text>
+              </Pressable>
+            </View>
+          ) : !isInitialPageLoading && !hasMore && paginatedTransactions.length > 0 ? (
+            <Text style={styles.emptyText}>Fim do histórico.</Text>
           ) : undefined
         }
         ListEmptyComponent={
-          <Text style={styles.emptyText}>Nenhuma transação encontrada.</Text>
+          isInitialPageLoading ? (
+            <View style={styles.loadingFooter} accessibilityLabel="Carregando transações" accessible>
+              <ActivityIndicator size="small" color="#004D40" />
+              <Text style={styles.loadingFooterText}>Carregando transações...</Text>
+            </View>
+          ) : paginationError || transactionsCountError || hasMore || transactionsCount === null ? undefined : (
+            <Text style={styles.emptyText}>Nenhuma transação encontrada.</Text>
+          )
         }
       />
     </View>

@@ -256,6 +256,7 @@ test('summary failure does not reject successful CRUD and failed CRUD does not r
     'react/jsx-runtime': require('react/jsx-runtime'),
     './AuthContext': { useAuth: () => ({ user: { uid: 'user-a' } }) },
     '../hooks/use-financial-summary': { useFinancialSummary: () => ({ ...store.getSnapshot(), ...store }) },
+    '../hooks/use-transactions-pagination': { useTransactionsPagination: () => ({ invalidatePagination: async () => {} }) },
   };
   const { TransactionsProvider } = loadModule('contexts/TransactionsContext.tsx', modules);
   const api = TransactionsProvider({ useCases, children: null }).props.value;
