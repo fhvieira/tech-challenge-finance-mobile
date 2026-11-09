@@ -226,6 +226,28 @@ Em falha intermediária, os itens e o cursor parcial daquela ação não são pu
 
 Durante o carregamento adicional, a tela mostra `Carregando mais transações...`. As páginas são leituras pontuais: mudanças de outro dispositivo são refletidas ao reabrir o extrato. Não há snapshot atômico de todo o histórico: inclusões/edições/exclusões concorrentes podem mudar o universo durante a navegação. A lista deduplica IDs e o total da pesquisa descreve a varredura concluída, sem garantir a contagem atual do servidor durante alterações concorrentes. Reabrir a tela reinicia a consulta para obter dados atualizados.
 
+### Cache em memória e pré-carregamento
+
+Ao receber foco após a autenticação, o dashboard chama `preloadFirstPage()`, disponibilizado pelo `TransactionsContext`. O método reutiliza `GetTransactionsPage` e `GetTransactionsCount` no store de paginação existente. A chamada depende do UID e do foco, sem se repetir a cada renderização; os cálculos e as agregações financeiras do dashboard permanecem independentes.
+
+O store guarda **somente a primeira página sem filtros**, com até 10 transações, cursor opaco original, `hasMore` e contagem. A chave considera UID e filtros normalizados; filtros preenchidos (incluindo categoria) não reutilizam nem alimentam esse cache. Assim, o comportamento da pesquisa por categoria e de **Continuar pesquisa** permanece inalterado. Não há persistência desses dados em AsyncStorage, disco ou outro armazenamento.
+
+O TTL padrão é de **30 segundos**, contado da conclusão bem-sucedida da página e da contagem, sem renovação em acessos ao cache. A expiração é verificada no próximo acesso, sem temporizador ou polling. Antes do vencimento, abrir ou reabrir o extrato sem filtros restaura a primeira página e seu cursor sem repetir as consultas de listagem e contagem. As páginas seguintes continuam sendo consultadas normalmente. O TTL não interrompe uma paginação já iniciada nem representa uma garantia de atualização em tempo real.
+
+Reiniciar/encerrar a navegação limpa o estado visível e invalida respostas pendentes, mas preserva esse cache até o TTL. CRUD confirmado invalida todo o cache da sessão e mantém a atualização da paginação existente; uma falha de atualização não transforma uma gravação bem-sucedida em erro de salvamento. Logout, troca de UID ou desmontagem do Provider eliminam o cache. Uma resposta anterior à invalidação não pode repovoá-lo.
+
+Se o extrato abrir durante o preloading, compartilha a mesma operação, inclusive quando a página já chegou e a contagem ainda está pendente. Falhas de preloading são tratadas, não bloqueiam o dashboard e não são armazenadas no cache; abrir o extrato depois da falha tenta o carregamento normal novamente. Dados alterados em outro dispositivo podem permanecer desatualizados por até o TTL antes de uma nova abertura consultar a rede.
+
+Para comprovar o benefício:
+
+1. Autenticar e permanecer no dashboard até concluir o preloading.
+2. No React Native DevTools, colocar breakpoints em `FirebaseTransactionRepository.getPage()` (primeira página: `cursor == null`) e `getCount()` para observar as chamadas antecipadas. As agregações financeiras usam outro método e não entram nessa contagem.
+3. Abrir o extrato sem filtros em menos de 30 segundos. `firstPageSource`, exposto pelo Context para diagnóstico, deve ser `"cache"`; página inicial e contagem não devem consultar novamente. As transações e a continuidade devem aparecer normalmente. Se `onEndReached` pedir outra página, essa consulta terá cursor preenchido e não representa repetição da primeira.
+4. Rolar para a próxima página: somente a nova página deve consultar o repository, usando o cursor preservado. Após o TTL, uma nova abertura deve apresentar `firstPageSource: "network"` e executar novamente página/contagem.
+5. Repetir com CRUD, logout/troca de conta e filtros; nenhum cache incompatível ou invalidado deve aparecer. Aguardar e retomar a pesquisa por categoria continua obedecendo ao orçamento existente.
+
+Os testes em `tests/transactions-preloading.test.cjs` contam as chamadas aos casos de uso e cobrem reaproveitamento, concorrência, TTL com relógio controlado, invalidação, sessão, falhas e continuidade. O benefício verificável é eliminar a repetição das consultas antecipadas na abertura do extrato; o preloading pode executar consultas mesmo se o usuário não visitar a tela.
+
 ### Índices e validação remota dos intervalos
 
 Além do índice existente do dashboard, `firestore.indexes.json` define três índices de `transactions`, escopo `COLLECTION`:

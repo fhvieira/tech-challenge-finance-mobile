@@ -225,7 +225,7 @@ test('screen uses real pages of 10 for 0, 1, 10, 11 and 23 records, without time
   }
 });
 
-test('category search reads complete results outside the first page and clearing filters reloads real pages', async () => {
+test('category search scans candidates and clearing filters restores the compatible cached first page', async () => {
   const app = harness(rows(23));
   await app.settle(); app.render();
   app.input('Filtrar transações por categoria', '  mErCa  ');
@@ -238,7 +238,8 @@ test('category search reads complete results outside the first page and clearing
   app.clear();
   await app.settle(); app.render();
   assert.equal(app.list().data.length, 10);
-  assert.equal(app.calls.at(-1).cursor, null);
+  assert.equal(app.calls.length, calls);
+  assert.equal(app.store().getSnapshot().firstPageSource, 'cache');
 });
 
 test('category pages reveal no exact total before exhaustion and use no artificial timers', async () => {

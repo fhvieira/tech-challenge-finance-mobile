@@ -1,7 +1,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 import type { GetTransactionsPage } from "../src/application/use-cases/GetTransactionsPage";
 import type { Transaction } from "../src/domain/entities/Transaction";
-import type { TransactionCursor } from "../src/domain/entities/TransactionPage";
+import type { TransactionCursor, TransactionPage } from "../src/domain/entities/TransactionPage";
 import type { TransactionSearchFilters } from "../src/domain/entities/TransactionFilters";
 import type { GetTransactionsCount } from "../src/application/use-cases/GetTransactionsCount";
 
@@ -15,7 +15,17 @@ type PaginationState = {
   transactionsCount: number | null;
   isTransactionsCountLoading: boolean;
   transactionsCountError: string | null;
+  firstPageSource: "cache" | "network" | null;
 };
+
+type FirstPageCache = {
+  key: string;
+  page: TransactionPage;
+  count: number | null;
+  expiresAt: number;
+};
+
+type PaginationOptions = { firstPageCacheTtlMs?: number; now?: () => number };
 
 function emptyState(): PaginationState {
   return {
@@ -28,6 +38,7 @@ function emptyState(): PaginationState {
     transactionsCount: null,
     isTransactionsCountLoading: false,
     transactionsCountError: null,
+    firstPageSource: null,
   };
 }
 
@@ -35,8 +46,12 @@ function emptyState(): PaginationState {
 export function createTransactionsPaginationStore(
   userId: string | null,
   getPage: GetTransactionsPage["execute"],
-  getCount?: GetTransactionsCount["execute"]
+  getCount?: GetTransactionsCount["execute"],
+  options: PaginationOptions = {}
 ) {
+  const ttl = options.firstPageCacheTtlMs ?? 30_000;
+  const now = options.now ?? Date.now;
+  if (!Number.isSafeInteger(ttl) || ttl < 0) throw new Error("TTL de cache inválido.");
   let state = emptyState();
   let cursor: TransactionCursor | null = null;
   let initialized = false;
@@ -45,7 +60,11 @@ export function createTransactionsPaginationStore(
   let inFlight: Promise<void> | null = null;
   let countInFlight: Promise<void> | null = null;
   let activeFilters: TransactionSearchFilters | undefined;
+  let firstPageCache: FirstPageCache | null = null;
+  let firstPageOperation: { key: string; promise: Promise<void> } | null = null;
   const listeners = new Set<() => void>();
+
+  const cacheKey = (filters?: TransactionSearchFilters) => JSON.stringify([userId, filtersKey(filters)]);
 
   function publish(next: PaginationState) {
     state = next;
@@ -56,6 +75,7 @@ export function createTransactionsPaginationStore(
     generation += 1;
     inFlight = null;
     countInFlight = null;
+    firstPageOperation = null;
     activeFilters = undefined;
     cursor = null;
     initialized = false;
@@ -77,7 +97,10 @@ export function createTransactionsPaginationStore(
       if (!isCurrent()) return;
       try {
         const total = await readCount(userId, filters);
-        if (isCurrent()) publish({ ...state, transactionsCount: total, transactionsCountError: null });
+        if (isCurrent()) {
+          if (firstPageCache?.key === cacheKey(filters)) firstPageCache.count = total;
+          publish({ ...state, transactionsCount: total, transactionsCountError: null });
+        }
       } catch {
         if (isCurrent()) publish({
           ...state, transactionsCount: null,
@@ -98,6 +121,28 @@ export function createTransactionsPaginationStore(
   function load(first: boolean, filters?: TransactionSearchFilters): Promise<void> {
     if (!userId) return Promise.resolve();
     const sameFilters = filtersKey(filters) === filtersKey(activeFilters);
+    const key = cacheKey(filters);
+    const cacheable = isUnfiltered(filters);
+    if (cacheable && firstPageOperation?.key === key && (first || !initialized)) return firstPageOperation.promise;
+    if (first && cacheable && firstPageCache?.key === key) {
+      const cached = firstPageCache;
+      if (now() < cached.expiresAt) {
+        resetPagination();
+        activeFilters = filters;
+        cursor = cached.page.nextCursor;
+        initialized = true;
+        started = true;
+        publish({
+          ...emptyState(),
+          paginatedTransactions: [...cached.page.transactions],
+          hasMore: cached.page.hasMore,
+          transactionsCount: cached.count,
+          firstPageSource: "cache",
+        });
+        return Promise.resolve();
+      }
+      firstPageCache = null;
+    }
     if (inFlight && sameFilters) return inFlight;
     if (!first && initialized && !state.hasMore) return Promise.resolve();
     if (first || !sameFilters) {
@@ -113,6 +158,7 @@ export function createTransactionsPaginationStore(
     const requestGeneration = generation;
     const requestCursor = first ? null : cursor;
     const isCurrent = () => generation === requestGeneration && listeners.size > 0;
+    let completedFirstPage: TransactionPage | null = null;
     // Child focus effects may run before the Provider subscribes. Defer the
     // active-session check until after the effect flush, and coalesce requests.
     const request = Promise.resolve().then(async () => {
@@ -132,6 +178,7 @@ export function createTransactionsPaginationStore(
         if (!isCurrent()) return;
         const transactions = new Map(state.paginatedTransactions.map((item) => [item.id, item]));
         page.transactions.forEach((item) => transactions.set(item.id, item));
+        if (first) completedFirstPage = { ...page, transactions: Array.from(transactions.values()) };
         cursor = page.nextCursor;
         initialized = true;
         inFlight = null;
@@ -146,6 +193,7 @@ export function createTransactionsPaginationStore(
           transactionsCount: activeFilters?.category?.trim()
             ? page.hasMore ? null : transactions.size
             : state.transactionsCount,
+          firstPageSource: first ? "network" : state.firstPageSource,
         });
       } catch {
         if (!isCurrent()) return;
@@ -166,6 +214,22 @@ export function createTransactionsPaginationStore(
       paginationError: null,
     });
     const countRequest = first ? refreshTransactionsCount() : Promise.resolve();
+    if (first && cacheable) {
+      // Wait for page and count before caching. Opening during preloading shares
+      // this whole operation, including the gap after the page precedes count.
+      const operation = {
+        key,
+        promise: Promise.all([request, countRequest]).then(() => {
+          if (isCurrent() && completedFirstPage && !state.paginationError && !state.transactionsCountError && ttl > 0) {
+            firstPageCache = { key, page: completedFirstPage, count: state.transactionsCount, expiresAt: now() + ttl };
+          }
+        }).finally(() => {
+          if (firstPageOperation === operation) firstPageOperation = null;
+        }),
+      };
+      firstPageOperation = operation;
+      return operation.promise;
+    }
     return first && getCount ? Promise.all([request, countRequest]).then(() => {}) : request;
   }
 
@@ -178,6 +242,7 @@ export function createTransactionsPaginationStore(
   }
 
   function invalidatePagination(): Promise<void> {
+    firstPageCache = null;
     const shouldReload = started;
     const filters = activeFilters;
     resetPagination();
@@ -190,7 +255,10 @@ export function createTransactionsPaginationStore(
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
-        if (listeners.size === 0) resetPagination();
+        if (listeners.size === 0) {
+          firstPageCache = null;
+          resetPagination();
+        }
       };
     },
     loadFirstPage,
@@ -198,7 +266,13 @@ export function createTransactionsPaginationStore(
     resetPagination,
     invalidatePagination,
     refreshTransactionsCount,
+    preloadFirstPage: () => loadFirstPage(),
   };
+}
+
+function isUnfiltered(filters?: TransactionSearchFilters): boolean {
+  return !filters?.category?.trim() && filters?.minAmount === undefined && filters?.maxAmount === undefined &&
+    filters?.startDate === undefined && filters?.endDate === undefined;
 }
 
 function filtersKey(filters: TransactionSearchFilters | undefined): string {
@@ -226,5 +300,6 @@ export function useTransactionsPagination(userId: string | null, useCase: GetTra
     resetPagination: store.resetPagination,
     invalidatePagination: store.invalidatePagination,
     refreshTransactionsCount: store.refreshTransactionsCount,
+    preloadFirstPage: store.preloadFirstPage,
   };
 }

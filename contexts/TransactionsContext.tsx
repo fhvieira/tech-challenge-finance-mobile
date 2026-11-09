@@ -42,6 +42,8 @@ type TransactionsContextType = {
   isTransactionsCountLoading: boolean;
   transactionsCountError: string | null;
   refreshTransactionsCount: () => Promise<void>;
+  preloadFirstPage: () => Promise<void>;
+  firstPageSource: "cache" | "network" | null;
   financialSummary: FinancialSummary | null;
   isFinancialSummaryLoading: boolean;
   financialSummaryError: string | null;
@@ -72,6 +74,8 @@ const TransactionsContext = createContext<TransactionsContextType>({
   isTransactionsCountLoading: false,
   transactionsCountError: null,
   refreshTransactionsCount: async () => {},
+  preloadFirstPage: async () => {},
+  firstPageSource: null,
   financialSummary: null,
   isFinancialSummaryLoading: false,
   financialSummaryError: null,

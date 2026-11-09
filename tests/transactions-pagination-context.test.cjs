@@ -164,14 +164,15 @@ test('reset clears items and cursors; late success or error cannot overwrite a n
       if (++calls === 1) return Promise.resolve(page(['a'], 'cursor-a'));
       return calls === 2 ? pending.promise : Promise.resolve(page(['fresh']));
     });
-    await store.loadFirstPage();
+    // Filtered sessions bypass the first-page cache.
+    await store.loadFirstPage({ minAmount: 0 });
     const old = store.loadNextPage();
     await Promise.resolve();
     store.resetPagination();
     assert.deepEqual(ids(store), []);
     assert.equal(store.getSnapshot().hasMore, false);
     assert.equal(store.getSnapshot().isNextPageLoading, false);
-    await store.loadFirstPage();
+    await store.loadFirstPage({ minAmount: 0 });
     if (rejectOld) pending.reject(new Error('old failure'));
     else pending.resolve(page(['old']));
     await old;

@@ -29,6 +29,7 @@ export default function HomeScreen() {
     financialSummaryError,
     isFinancialSummaryStale,
     refreshFinancialSummary,
+    preloadFirstPage,
   } = useTransactions();
 
   const totalIncome = financialSummary?.totalIncome ?? 0;
@@ -67,6 +68,10 @@ export default function HomeScreen() {
       useNativeDriver: false,
     }).start();
   }, [chartAnimation, totalIncome, totalExpense]);
+
+  useFocusEffect(useCallback(() => {
+    if (!loading && user?.uid) void preloadFirstPage();
+  }, [loading, user?.uid, preloadFirstPage]));
 
   useFocusEffect(useCallback(() => {
     void refreshFinancialSummary();
