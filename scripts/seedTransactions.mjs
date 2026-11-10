@@ -13,14 +13,25 @@ import {
 // - SEED_USER_PASSWORD
 const REQUIRED_TRANSACTION_COUNT = 100;
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDyKTeaXpNsIN9fhoFg3EZRLv6N3Nr2h-0",
-  authDomain: "tech-challenge-finance-mobile.firebaseapp.com",
-  projectId: "tech-challenge-finance-mobile",
-  storageBucket: "tech-challenge-finance-mobile.firebasestorage.app",
-  messagingSenderId: "1018875833545",
-  appId: "1:1018875833545:web:590b7c3638d3b4501af118",
-};
+function requiredEnv(name, value) {
+  if (!value?.trim()) {
+    throw new Error(`Configuração Firebase ausente: ${name}. Carregue o .env com node --env-file=.env.`);
+  }
+  return value.trim();
+}
+
+// Node does not use Expo's environment loader. Use --env-file=.env or export
+// these variables in the shell; no dotenv dependency or hardcoded fallback.
+function getFirebaseConfig() {
+  return {
+    apiKey: requiredEnv("EXPO_PUBLIC_FIREBASE_API_KEY", process.env.EXPO_PUBLIC_FIREBASE_API_KEY),
+    authDomain: requiredEnv("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN", process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN),
+    projectId: requiredEnv("EXPO_PUBLIC_FIREBASE_PROJECT_ID", process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID),
+    storageBucket: requiredEnv("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET", process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET),
+    messagingSenderId: requiredEnv("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID", process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID),
+    appId: requiredEnv("EXPO_PUBLIC_FIREBASE_APP_ID", process.env.EXPO_PUBLIC_FIREBASE_APP_ID),
+  };
+}
 
 const incomes = [
   {
@@ -159,7 +170,7 @@ async function seedTransactions() {
     );
   }
 
-  const app = initializeApp(firebaseConfig);
+  const app = initializeApp(getFirebaseConfig());
   const auth = getAuth(app);
   const db = getFirestore(app);
 

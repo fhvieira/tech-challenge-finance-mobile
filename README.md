@@ -47,11 +47,42 @@ O comando usa temporariamente o npm 11.21.1, adotado na migração para evitar o
 
 ### Configuração Firebase e variáveis de ambiente
 
-**A implementação atual não exige variáveis de ambiente da aplicação.** Ela não lê configurações Firebase de `.env` e não possui `.env.example`. Criar variáveis `EXPO_PUBLIC_*` isoladamente não muda o projeto.
+A configuração utiliza o mecanismo nativo `EXPO_PUBLIC_*` do Expo, sem biblioteca adicional. Em um clone novo, copie o modelo para `.env` na raiz (não sobrescreva um arquivo local já preenchido):
 
-O objeto de configuração do cliente está em `firebaseConfig.ts`. Para utilizar outro projeto, configure nesse arquivo os campos `apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId` e `appId` com a configuração Web correspondente do Firebase Console. Nenhum valor de configuração é reproduzido neste README.
+```bash
+cp .env.example .env
+```
 
-A [API key Web do Firebase](https://firebase.google.com/docs/projects/api-keys) identifica o projeto cliente; ela não substitui autenticação nem regras de autorização. Não inclua senhas, tokens de sessão, contas de serviço ou chaves privadas no aplicativo ou no repositório. `.env` e `.env.*` estão ignorados pelo Git, mas isso não implementa sua leitura. `EXPO_OS`, usado em componentes auxiliares, é fornecido pelo Expo e não precisa de configuração manual.
+Preencha os seis campos com a configuração **Web do mesmo projeto Firebase** obtida no Firebase Console:
+
+| Variável obrigatória | Campo do Firebase |
+| --- | --- |
+| `EXPO_PUBLIC_FIREBASE_API_KEY` | `apiKey` |
+| `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN` | `authDomain` |
+| `EXPO_PUBLIC_FIREBASE_PROJECT_ID` | `projectId` |
+| `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET` | `storageBucket` |
+| `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` |
+| `EXPO_PUBLIC_FIREBASE_APP_ID` | `appId` |
+
+`firebaseConfig.ts` usa acessos estáticos `process.env.EXPO_PUBLIC_FIREBASE_*`, necessários para a substituição pelo Expo no bundle. Antes de inicializar Firebase, valida cada variável: ausente, vazia ou contendo somente espaços gera erro com o nome do campo, sem expor seu valor. Não há valores reais nem fallback de configuração no código-fonte. `.env` e `.env.*` são ignorados pelo Git; somente `.env.example`, com valores vazios, deve ser versionado.
+
+**Essas variáveis são públicas e aparecem no bundle.** A separação é organização/configuração por ambiente, não criptografia nem proteção de segredos. A [API key Web do Firebase](https://firebase.google.com/docs/projects/api-keys) identifica o projeto cliente e não substitui autenticação, restrições da chave ou regras de segurança. Nunca coloque senhas, tokens, contas de serviço ou chaves privadas em variáveis `EXPO_PUBLIC_*`. `EXPO_OS`, usado em componentes auxiliares, é fornecido pelo Expo e não precisa de configuração manual.
+
+O Expo SDK 58 carrega os arquivos padrão de ambiente; em desenvolvimento, a prioridade entre arquivos é `.env.development.local`, `.env.local`, `.env.development` e `.env`. Valores já definidos no ambiente do processo têm prioridade. Para esta configuração local, basta `.env`. Após preenchê-lo, reinicie o Metro e faça um reload completo no Expo Go. A ausência de variáveis em outro computador ou em uma exportação também impede a inicialização; forneça a mesma configuração no ambiente correspondente. Consulte o [mecanismo de variáveis de ambiente do Expo](https://docs.expo.dev/guides/environment-variables/).
+
+Mantenha a mesma API key/projeto para preservar o escopo da sessão atual no SecureStore. Essa migração não altera autenticação, persistência segura, dados remotos, regras, chaves ou histórico Git.
+
+### Script opcional de dados de teste
+
+`scripts/seedTransactions.mjs` usa os mesmos seis nomes de configuração e valida as variáveis antes de inicializar Firebase. Como roda no Node, não utiliza o carregador de `.env` do Expo. No Node compatível com os pré-requisitos, carregue explicitamente o arquivo escolhido:
+
+```bash
+node --env-file=.env scripts/seedTransactions.mjs
+```
+
+Além da configuração pública, esse script exige `SEED_USER_EMAIL` e `SEED_USER_PASSWORD` no ambiente do terminal ou no `.env` local ignorado. Elas **não** recebem prefixo `EXPO_PUBLIC_`, não são necessárias para iniciar o aplicativo e não devem ser versionadas. Se utilizar outro arquivo de configuração local, indique-o em `--env-file`; o script não resolve automaticamente a hierarquia de arquivos do Expo. Variáveis já exportadas no terminal prevalecem sobre o arquivo.
+
+O comando autentica o usuário e **adiciona 100 transações no Firestore** desse UID a cada execução, sem apagar os registros anteriores. Use somente uma conta/ambiente de teste autorizado; não faz parte da inicialização do app nem dos testes automatizados. A suíte valida o seed com serviços simulados, sem executar gravações remotas.
 
 ### Iniciar no iPhone
 
@@ -252,7 +283,7 @@ node --test tests/*.test.cjs
 git diff --check
 ```
 
-Na revisão desta etapa, a suíte contém **131 testes**, cobrindo:
+Na revisão desta etapa, a suíte contém **139 testes**, cobrindo:
 
 - Agregações financeiras e seus estados de erro, atualização, concorrência e isolamento por UID.
 - Páginas vazias/intermediárias/finais, precisão dos cursores, filtros, contagem e rejeição de cursores incompatíveis.
@@ -261,6 +292,7 @@ Na revisão desta etapa, a suíte contém **131 testes**, cobrindo:
 - Falhas de CRUD/upload/limpeza, toques rápidos, ausência de usuário, valores inválidos e preservação do formulário.
 - Visualização sem gravações, MIME de PDF/JPEG/PNG, arquivos desconhecidos e ausência de alterações automáticas em objetos antigos.
 - Persistência segura, limpeza das chaves legadas, logout, Fast Refresh e mensagens sanitizadas.
+- Configuração por ambiente no app/seed, variáveis ausentes/vazias, modelo sem valores e regras de exclusão dos arquivos locais pelo Git.
 
 Os testes não comprovam regras/índices publicados, cobrança real, Keychain nativo ou renderização de arquivos no iPhone. Não há percentual de cobertura configurado; a quantidade de testes não representa cobertura total dos comportamentos.
 
