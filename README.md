@@ -180,6 +180,8 @@ Context e stores publicam mudanças de estado para os componentes via hooks. Iss
 
 `FirebaseTransactionRepository.getPage()` usa `getDocsFromServer()`, `limit(tamanho + 1)` e `startAfter()`. O documento adicional detecta `hasMore` e não é entregue na página. O extrato usa páginas de 10 itens com `onEndReached` para carregar dados sob demanda (lazy loading), sem limitar localmente uma coleção previamente carregada.
 
+O painel de filtros inicia recolhido. O botão **Filtros** expande/recolhe os campos sem limpar os critérios nem reiniciar consultas. O resumo compacto dos critérios ativos, a ação **Limpar filtros** e eventuais erros de contagem com nova tentativa permanecem acessíveis no cabeçalho fixo. O resumo visual usa até duas linhas e disponibiliza o texto completo à acessibilidade. Mudanças de altura do painel não iniciam páginas adicionais: o carregamento automático retoma no próximo gesto de rolagem.
+
 A ordem principal é sempre `createdAt DESC`. Sem intervalos, o desempate é ID descendente. Com valor, acrescenta `amount DESC`; com data, acrescenta `date DESC`; com ambos, valor precede data. O ID é sempre o último critério. A lista deduplica IDs; nenhuma ordenação global é simulada somente dentro da página.
 
 Os limites de valor são inclusivos. A tela normaliza as datas para início/fim do dia local; no repository, o fim é expresso como menor que o milissegundo seguinte, incluindo os nanossegundos do último milissegundo. Não são filtros por `createdAt`: o intervalo de data usa o campo `date` da transação.
@@ -250,7 +252,7 @@ node --test tests/*.test.cjs
 git diff --check
 ```
 
-Na revisão desta etapa, a suíte contém **123 testes**, cobrindo:
+Na revisão desta etapa, a suíte contém **131 testes**, cobrindo:
 
 - Agregações financeiras e seus estados de erro, atualização, concorrência e isolamento por UID.
 - Páginas vazias/intermediárias/finais, precisão dos cursores, filtros, contagem e rejeição de cursores incompatíveis.

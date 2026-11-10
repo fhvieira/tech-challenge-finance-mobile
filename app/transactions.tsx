@@ -38,6 +38,9 @@ export default function TransactionsScreen() {
   const deleteLocks = useRef(new Set<string>());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
+  const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
+  const filterLayoutChanged = useRef(false);
+
   const [categoryFilter, setCategoryFilter] = useState("");
   const [minAmountFilter, setMinAmountFilter] = useState("");
   const [maxAmountFilter, setMaxAmountFilter] = useState("");
@@ -54,6 +57,14 @@ export default function TransactionsScreen() {
     !!maxAmountFilter ||
     !!startDateFilter ||
     !!endDateFilter;
+
+  const filterSummary = [
+    categoryFilter.trim() && `Categoria: ${categoryFilter.trim()}`,
+    minAmountFilter && `Mín.: ${formatFilterAmount(minAmountFilter)}`,
+    maxAmountFilter && `Máx.: ${formatFilterAmount(maxAmountFilter)}`,
+    startDateFilter && `Desde: ${formatDate(startDateFilter)}`,
+    endDateFilter && `Até: ${formatDate(endDateFilter)}`,
+  ].filter(Boolean).join(" · ") || "Nenhum filtro ativo.";
 
   const hasCategorySearch = !!categoryFilter.trim();
   const remoteFilters = useMemo(() => ({
@@ -86,7 +97,7 @@ export default function TransactionsScreen() {
   }
 
   const handleLoadMore = useCallback(() => {
-    if (isInitialPageLoading || isNextPageLoading || paginationError || !hasMore || searchLimitReached ||
+    if (filterLayoutChanged.current || isInitialPageLoading || isNextPageLoading || paginationError || !hasMore || searchLimitReached ||
       pageRequestRef.current?.load === loadNextPage) return;
 
     const pending = { load: loadNextPage, request: loadNextPage() };
@@ -97,6 +108,9 @@ export default function TransactionsScreen() {
   }, [isInitialPageLoading, isNextPageLoading, paginationError, hasMore, searchLimitReached, loadNextPage]);
 
   function clearFilters() {
+    Keyboard.dismiss();
+    setShowStartDatePicker(false);
+    setShowEndDatePicker(false);
     resetFilteredPagination();
     setCategoryFilter("");
     setMinAmountFilter("");
@@ -130,12 +144,17 @@ export default function TransactionsScreen() {
     setEndDateFilter(value);
   }
 
-  function scrollToFilters() {
+  function toggleFilters() {
     Keyboard.dismiss();
-    transactionsListRef.current?.scrollToOffset({
-      offset: 0,
-      animated: true,
-    });
+    setShowStartDatePicker(false);
+    setShowEndDatePicker(false);
+    // Changing header height can trigger FlatList.onEndReached by layout alone.
+    // Resume automatic paging only after the next user scroll gesture.
+    filterLayoutChanged.current = true;
+    setIsFiltersExpanded((current) => !current);
+    if (!isFiltersExpanded) {
+      transactionsListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
   }
 
   function confirmDeleteTransaction(transactionId: string) {
@@ -193,10 +212,12 @@ export default function TransactionsScreen() {
 
         <View style={styles.card}>
           <Pressable
-            style={({ pressed }) => getPressedFeedbackStyle(pressed)}
-            onPress={scrollToFilters}
+            style={({ pressed }) => [styles.filterToggle, getPressedFeedbackStyle(pressed)]}
+            onPress={toggleFilters}
             accessibilityRole="button"
-            accessibilityLabel="Ir para os filtros"
+            accessibilityLabel={isFiltersExpanded ? "Recolher filtros" : "Expandir filtros"}
+            accessibilityHint="Mostra ou oculta os campos sem remover os filtros aplicados."
+            accessibilityState={{ expanded: isFiltersExpanded }}
           >
             <View style={styles.filterHeader}>
               <Text style={styles.sectionTitle}>
@@ -204,11 +225,40 @@ export default function TransactionsScreen() {
               </Text>
 
               <Text style={styles.filterCount}>
-                {transactionsCount ?? "—"}
+                {isFiltersExpanded ? "Recolher ▴" : "Expandir ▾"}
               </Text>
             </View>
           </Pressable>
-
+          <Text
+            style={styles.filterSummary}
+            numberOfLines={2}
+            accessibilityLabel={`Resumo dos filtros: ${filterSummary}`}
+          >
+            {filterSummary}
+          </Text>
+          {hasActiveFilters && (
+            <Pressable
+              style={({ pressed }) => [styles.clearButton, getPressedFeedbackStyle(pressed)]}
+              onPress={clearFilters}
+              accessibilityRole="button"
+              accessibilityLabel="Limpar filtros do extrato"
+            >
+              <Text style={styles.clearButtonText}>Limpar filtros</Text>
+            </Pressable>
+          )}
+          {!hasCategorySearch && transactionsCountError && (
+            <View accessibilityLiveRegion="polite">
+              <Text style={styles.emptyText}>{transactionsCountError}</Text>
+              <Pressable
+                style={({ pressed }) => [styles.clearButton, getPressedFeedbackStyle(pressed)]}
+                onPress={() => void refreshTransactionsCount()}
+                accessibilityRole="button"
+                accessibilityLabel="Tentar atualizar contagem novamente"
+              >
+                <Text style={styles.clearButtonText}>Atualizar contagem</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </View>
 
@@ -221,23 +271,13 @@ export default function TransactionsScreen() {
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        onScrollBeginDrag={Keyboard.dismiss}
+        onScrollBeginDrag={() => {
+          Keyboard.dismiss();
+          filterLayoutChanged.current = false;
+        }}
         onTouchStart={Keyboard.dismiss}
-        ListHeaderComponent={
+        ListHeaderComponent={isFiltersExpanded ? (
           <View style={[styles.card, styles.filtersCard]}>
-            {!hasCategorySearch && transactionsCountError && (
-              <View accessibilityLiveRegion="polite">
-                <Text style={styles.emptyText}>{transactionsCountError}</Text>
-                <Pressable
-                  style={({ pressed }) => [styles.clearButton, getPressedFeedbackStyle(pressed)]}
-                  onPress={() => void refreshTransactionsCount()}
-                  accessibilityRole="button"
-                  accessibilityLabel="Tentar atualizar contagem novamente"
-                >
-                  <Text style={styles.clearButtonText}>Atualizar contagem</Text>
-                </Pressable>
-              </View>
-            )}
             <Text style={styles.label}>Filtrar por categoria</Text>
             <TextInput
               style={styles.input}
@@ -334,21 +374,8 @@ export default function TransactionsScreen() {
               />
             )}
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.clearButton,
-                getPressedFeedbackStyle(pressed),
-              ]}
-              onPress={clearFilters}
-              accessibilityRole="button"
-              accessibilityLabel="Limpar filtros do extrato"
-            >
-              <Text style={styles.clearButtonText}>
-                Limpar filtros
-              </Text>
-            </Pressable>
           </View>
-        }
+        ) : undefined}
         renderItem={({ item: transaction }) => (
           <View style={styles.transactionCard}>
             <View style={styles.transactionHeader}>
@@ -540,6 +567,7 @@ const styles = StyleSheet.create({
   },
 
   input: {
+    minHeight: 44,
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
@@ -639,6 +667,7 @@ const styles = StyleSheet.create({
   },
 
   clearButton: {
+    minHeight: 44,
     paddingVertical: 12,
     alignItems: "center",
     borderWidth: 1,
@@ -650,6 +679,18 @@ const styles = StyleSheet.create({
   clearButtonText: {
     color: "#004D40",
     fontWeight: "600",
+  },
+
+  filterToggle: {
+    minHeight: 44,
+    justifyContent: "center",
+  },
+
+  filterSummary: {
+    color: "#004D40",
+    fontSize: 13,
+    marginTop: 4,
+    marginBottom: 8,
   },
 
   filterHeader: {
@@ -685,3 +726,8 @@ const styles = StyleSheet.create({
     color: "#555",
   },
 });
+
+function formatFilterAmount(value: string): string {
+  const amount = Number(value.replace(",", "."));
+  return Number.isFinite(amount) ? formatCurrency(amount) : value;
+}

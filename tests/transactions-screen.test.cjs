@@ -186,8 +186,14 @@ function harness(initialRows, options) {
     render, list, calls, countCalls, timers, navigation, deleteCalls, alerts,
     settle: () => firstRequest,
     store: () => store,
-    input: (name, value) => { label(list().ListHeaderComponent, name).props.onChangeText(value); render(); },
-    clear: () => { label(list().ListHeaderComponent, 'Limpar filtros do extrato').props.onPress(); render(); },
+    input: (name, value) => {
+      if (!list().ListHeaderComponent) { label(tree, 'Expandir filtros').props.onPress(); render(); }
+      label(list().ListHeaderComponent, name).props.onChangeText(value); render();
+    },
+    clear: () => { label(tree, 'Limpar filtros do extrato').props.onPress(); render(); },
+    element: (name) => label(tree, name),
+    summary: () => visit(tree, (item) => item.props?.accessibilityLabel?.startsWith('Resumo dos filtros:')),
+    toggle: () => { label(tree, list().ListHeaderComponent ? 'Recolher filtros' : 'Expandir filtros').props.onPress(); render(); },
     setFail: (value) => { fail = value; },
     setFailCount: (value) => { failCount = value; },
     setPending: (value) => { pending = value; },
@@ -209,8 +215,8 @@ test('screen uses real pages of 10 for 0, 1, 10, 11 and 23 records, without time
     assert.equal(app.list().data, app.store().getSnapshot().paginatedTransactions);
     assert.equal(app.list().data.length, Math.min(count, 10));
     while (app.store().getSnapshot().hasMore) {
-      app.list().onEndReached();
-      app.list().onEndReached(); // Same render, before loading flags change.
+      app.list().onScrollBeginDrag(); app.list().onEndReached();
+      app.list().onScrollBeginDrag(); app.list().onEndReached(); // Same render, before loading flags change.
       await app.store().loadNextPage();
       app.render();
     }
@@ -220,7 +226,7 @@ test('screen uses real pages of 10 for 0, 1, 10, 11 and 23 records, without time
     assert.equal(app.timers.size, 0);
     if (count) assert.equal(text(app.list().ListFooterComponent), 'Fim do histórico.');
     else assert.match(text(app.list().ListEmptyComponent), /Nenhuma transação/);
-    app.list().onEndReached();
+    app.list().onScrollBeginDrag(); app.list().onEndReached();
     assert.match(app.text(), new RegExp(`${count} de ${count} transações`));
   }
 });
@@ -233,7 +239,7 @@ test('category search scans candidates and clearing filters restores the compati
   assert.deepEqual(Array.from(app.list().data, (item) => item.id), ['tx-20', 'tx-21', 'tx-22']);
   assert.match(app.text(), /3 de 3 transações filtradas/);
   const calls = app.calls.length;
-  app.list().onEndReached();
+  app.list().onScrollBeginDrag(); app.list().onEndReached();
   assert.equal(app.calls.length, calls);
   app.clear();
   await app.settle(); app.render();
@@ -249,11 +255,11 @@ test('category pages reveal no exact total before exhaustion and use no artifici
   app.input('Filtrar por valor mínimo', '1,0');
   await app.settle(); app.render();
   assert.match(app.text(), /10 transações encontradas — pesquisa em andamento/);
-  app.list().onEndReached(); app.list().onEndReached();
+  app.list().onScrollBeginDrag(); app.list().onEndReached(); app.list().onScrollBeginDrag(); app.list().onEndReached();
   await app.settle(); app.render();
   assert.equal(app.timers.size, 0);
   assert.equal(app.list().data.length, 20);
-  app.list().onEndReached(); await app.settle(); app.render();
+  app.list().onScrollBeginDrag(); app.list().onEndReached(); await app.settle(); app.render();
   assert.equal(app.list().data.length, 23);
   assert.match(app.text(), /23 de 23 transações filtradas/);
   assert.ok(app.calls.length >= 4);
@@ -283,18 +289,18 @@ test('initial and additional errors show retry, never empty success or end of hi
   await app.settle(); app.render();
   assert.equal(app.list().ListEmptyComponent, undefined);
   assert.doesNotMatch(text(app.list().ListFooterComponent), /Fim do histórico/);
-  app.list().onEndReached();
+  app.list().onScrollBeginDrag(); app.list().onEndReached();
   assert.equal(app.calls.length, 1);
   app.setFail(false);
   label(app.list().ListFooterComponent, 'Tentar carregar transações novamente').props.onPress();
   await app.settle(); app.render();
   app.setFail(true);
-  app.list().onEndReached();
+  app.list().onScrollBeginDrag(); app.list().onEndReached();
   await app.store().loadNextPage(); app.render();
   assert.equal(app.list().data.length, 10);
   assert.doesNotMatch(text(app.list().ListFooterComponent), /Fim do histórico/);
   const calls = app.calls.length;
-  app.list().onEndReached();
+  app.list().onScrollBeginDrag(); app.list().onEndReached();
   assert.equal(app.calls.length, calls);
   app.setFail(false);
   label(app.list().ListFooterComponent, 'Tentar carregar transações novamente').props.onPress();
@@ -308,11 +314,11 @@ test('additional loading indicator and repeated end events keep a single in-flig
   await app.settle(); app.render();
   let resolve;
   app.setPending({ promise: new Promise((done) => { resolve = done; }) });
-  app.list().onEndReached(); app.list().onEndReached();
+  app.list().onScrollBeginDrag(); app.list().onEndReached(); app.list().onScrollBeginDrag(); app.list().onEndReached();
   const request = app.store().loadNextPage();
   await Promise.resolve(); app.render();
   assert.match(text(app.list().ListFooterComponent), /Carregando mais transações/);
-  app.list().onEndReached();
+  app.list().onScrollBeginDrag(); app.list().onEndReached();
   assert.equal(app.calls.length, 2);
   resolve({ transactions: rows(11).slice(10), hasMore: false, nextCursor: null });
   await request; app.render();
@@ -353,10 +359,10 @@ test('remote filtered count failure never appears as a zero total and can be ret
   assert.equal(app.list().data.length, 4);
   assert.match(app.text(), /4 transações carregadas/);
   assert.doesNotMatch(app.text(), /4 de 0/);
-  assert.match(text(app.list().ListHeaderComponent), /Não foi possível atualizar a contagem/);
+  assert.match(app.text(), /Não foi possível atualizar a contagem/);
   const reads = app.calls.length;
   app.setFailCount(false);
-  label(app.list().ListHeaderComponent, 'Tentar atualizar contagem novamente').props.onPress();
+  app.element('Tentar atualizar contagem novamente').props.onPress();
   await app.store().refreshTransactionsCount(); app.render();
   assert.equal(app.calls.length, reads);
   assert.match(app.text(), /4 de 4 transações filtradas/);
@@ -373,7 +379,7 @@ test('rare-category budget pause blocks automatic requests and continues without
   assert.equal(app.store().getSnapshot().transactionsCount, null);
   assert.match(text(app.list().ListFooterComponent), /Continuar pesquisa/);
   const pausedReads = app.calls.length;
-  app.list().onEndReached(); app.list().onEndReached();
+  app.list().onScrollBeginDrag(); app.list().onEndReached(); app.list().onScrollBeginDrag(); app.list().onEndReached();
   await Promise.resolve();
   assert.equal(app.calls.length, pausedReads);
 
@@ -406,4 +412,158 @@ test('nonexistent category shows no empty-result message until all bounded actio
   }
   assert.match(text(app.list().ListEmptyComponent), /Nenhuma transação encontrada/);
   assert.match(app.text(), /0 de 0 transações filtradas/);
+});
+
+test('filters start collapsed with an accessible expand action and no filter fields occupying the list header', async () => {
+  const app = harness(rows(23));
+  await app.settle(); app.render();
+  assert.equal(app.list().ListHeaderComponent, undefined);
+  assert.equal(app.element('Expandir filtros').props.accessibilityState.expanded, false);
+  assert.match(app.summary().props.children, /Nenhum filtro ativo/);
+  const reads = app.calls.length;
+  const counts = app.countCalls.length;
+  const state = app.store().getSnapshot();
+  app.toggle();
+  assert.ok(label(app.list().ListHeaderComponent, 'Filtrar transações por categoria'));
+  assert.equal(app.element('Recolher filtros').props.accessibilityState.expanded, true);
+  app.toggle();
+  assert.equal(app.list().ListHeaderComponent, undefined);
+  assert.equal(app.store().getSnapshot(), state);
+  assert.equal(app.calls.length, reads);
+  assert.equal(app.countCalls.length, counts);
+});
+
+test('collapsing keeps all five applied criteria, their compact accessible summary and the loaded results', async () => {
+  const app = harness(rows(40));
+  await app.settle(); app.render();
+  app.input('Filtrar transações por categoria', '  Salário  ');
+  app.input('Filtrar por valor mínimo', '2,0');
+  app.input('Filtrar por valor máximo', '15,0');
+  label(app.list().ListHeaderComponent, 'Selecionar data inicial').props.onPress(); app.render();
+  visit(app.list().ListHeaderComponent, (item) => item.type === 'DateTimePicker').props.onChange(null, new Date(2026, 10, 3)); app.render();
+  label(app.list().ListHeaderComponent, 'Selecionar data final').props.onPress(); app.render();
+  visit(app.list().ListHeaderComponent, (item) => item.type === 'DateTimePicker').props.onChange(null, new Date(2026, 10, 12)); app.render();
+  await app.settle(); app.render();
+  const state = app.store().getSnapshot();
+  const reads = app.calls.length;
+  const counts = app.countCalls.length;
+  app.toggle();
+  assert.equal(app.list().ListHeaderComponent, undefined);
+  const summary = app.summary().props.accessibilityLabel;
+  assert.match(summary, /Categoria: Salário/);
+  assert.match(summary, /Mín\.: 2/);
+  assert.match(summary, /Máx\.: 15/);
+  assert.ok(summary.includes(`Desde: ${new Date(2026, 10, 3).toISOString()}`));
+  assert.ok(summary.includes(`Até: ${new Date(2026, 10, 12, 23, 59, 59, 999).toISOString()}`));
+  assert.equal(app.summary().props.numberOfLines, 2);
+  assert.ok(app.element('Limpar filtros do extrato'));
+  app.toggle();
+  assert.equal(label(app.list().ListHeaderComponent, 'Filtrar transações por categoria').props.value, '  Salário  ');
+  assert.equal(label(app.list().ListHeaderComponent, 'Filtrar por valor mínimo').props.value, '2,0');
+  assert.equal(label(app.list().ListHeaderComponent, 'Filtrar por valor máximo').props.value, '15,0');
+  assert.equal(app.store().getSnapshot(), state);
+  assert.equal(app.calls.length, reads);
+  assert.equal(app.countCalls.length, counts);
+});
+
+test('clearing active filters is available while collapsed and restores the unfiltered source without opening the panel', async () => {
+  const app = harness(rows(23));
+  await app.settle(); app.render();
+  app.input('Filtrar por valor mínimo', '20');
+  await app.settle(); app.render();
+  app.toggle();
+  app.clear(); await app.settle(); app.render();
+  assert.equal(app.list().ListHeaderComponent, undefined);
+  assert.match(app.summary().props.children, /Nenhum filtro ativo/);
+  assert.equal(app.list().data.length, 10);
+  assert.equal(app.store().getSnapshot().transactionsCount, 23);
+  app.toggle();
+  assert.equal(label(app.list().ListHeaderComponent, 'Filtrar por valor mínimo').props.value, '');
+});
+
+test('count errors and retry remain accessible with collapsed fields and retry does not repeat page reads', async () => {
+  const app = harness(rows(23));
+  app.setFailCount(true);
+  await app.settle(); app.render();
+  assert.equal(app.list().ListHeaderComponent, undefined);
+  assert.match(app.text(), /Não foi possível atualizar a contagem/);
+  const reads = app.calls.length;
+  const counts = app.countCalls.length;
+  app.toggle(); app.toggle();
+  assert.equal(app.countCalls.length, counts);
+  app.setFailCount(false);
+  app.element('Tentar atualizar contagem novamente').props.onPress();
+  await app.store().refreshTransactionsCount(); app.render();
+  assert.equal(app.calls.length, reads);
+  assert.equal(app.countCalls.length, counts + 1);
+  assert.equal(app.store().getSnapshot().transactionsCount, 23);
+  assert.doesNotMatch(app.text(), /Não foi possível atualizar a contagem/);
+  assert.equal(app.list().ListHeaderComponent, undefined);
+});
+
+test('layout end events after toggling cannot load extra pages; the next real drag resumes cursor pagination', async () => {
+  const app = harness(rows(23));
+  await app.settle(); app.render();
+  const reads = app.calls.length;
+  const counts = app.countCalls.length;
+  app.toggle();
+  app.list().onEndReached(); app.list().onEndReached();
+  app.toggle(); app.list().onEndReached();
+  await Promise.resolve();
+  assert.equal(app.calls.length, reads);
+  assert.equal(app.countCalls.length, counts);
+  assert.equal(app.list().data.length, 10);
+  app.list().onScrollBeginDrag(); app.list().onEndReached();
+  await app.settle(); app.render();
+  assert.equal(app.calls.length, reads + 1);
+  assert.equal(app.calls.at(-1).cursor, '10');
+  assert.equal(app.list().data.length, 20);
+});
+
+test('collapsing during a pending filtered read keeps the request current and preserves its results on arrival', async () => {
+  const app = harness(rows(23));
+  await app.settle(); app.render();
+  let resolve;
+  app.setPending({ promise: new Promise((done) => { resolve = done; }) });
+  app.input('Filtrar por valor mínimo', '21');
+  await Promise.resolve(); app.render();
+  const reads = app.calls.length;
+  const request = app.settle();
+  app.toggle(); app.list().onEndReached();
+  resolve({ transactions: rows(23).slice(20), nextCursor: null, hasMore: false });
+  await request; app.render();
+  assert.equal(app.calls.length, reads);
+  assert.equal(app.list().ListHeaderComponent, undefined);
+  assert.equal(app.list().data.length, 3);
+  assert.match(app.summary().props.children, /Mín\.: 21/);
+});
+
+test('collapsing closes a date picker without changing dates or restoring the picker on expand', async () => {
+  const app = harness(rows(23));
+  await app.settle(); app.render();
+  app.toggle();
+  label(app.list().ListHeaderComponent, 'Selecionar data inicial').props.onPress(); app.render();
+  assert.ok(visit(app.list().ListHeaderComponent, (item) => item.type === 'DateTimePicker'));
+  const reads = app.calls.length;
+  app.toggle(); app.toggle();
+  assert.equal(visit(app.list().ListHeaderComponent, (item) => item.type === 'DateTimePicker'), null);
+  assert.equal(app.calls.length, reads);
+  assert.match(app.summary().props.children, /Nenhum filtro ativo/);
+});
+
+test('category budget continuation remains available while collapsed and resumes the existing candidate cursor', async () => {
+  const data = rows(60).map((row, i) => ({ ...row, category: i === 54 ? 'Rara' : 'Outra' }));
+  const app = harness(data, { maxCandidateReads: 22 });
+  await app.settle(); app.render();
+  app.input('Filtrar transações por categoria', 'rara');
+  await app.settle(); app.render();
+  const reads = app.calls.length;
+  app.toggle();
+  assert.match(app.summary().props.children, /Categoria: rara/);
+  assert.equal(app.store().getSnapshot().transactionsCount, null);
+  label(app.list().ListFooterComponent, 'Continuar pesquisa de transações').props.onPress();
+  await app.settle(); app.render();
+  assert.equal(app.calls[reads].cursor, '20');
+  assert.ok(app.calls.length > reads);
+  assert.equal(app.list().ListHeaderComponent, undefined);
 });
