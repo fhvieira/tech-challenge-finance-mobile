@@ -1,319 +1,288 @@
-# Tech Challenge – Finance Mobile
+# Tech Challenge — Finance Mobile · Fase 4
 
-Aplicativo mobile de gerenciamento financeiro desenvolvido para a Fase 3 do FIAP Pós-Tech Tech Challenge. Usuários autenticados gerenciam suas finanças de forma individual, com dashboard, entradas, despesas, filtros, comprovantes e persistência em serviços Firebase. O app usa Firebase Authentication, Cloud Firestore e Firebase Storage para autenticação, dados e arquivos.
+Aplicativo de finanças pessoais desenvolvido para o Tech Challenge da FIAP Pós-Tech. A Fase 4 evolui a aplicação mobile com Clean Architecture, consultas paginadas no Firestore, agregações financeiras, cache em memória, pré-carregamento e proteção da persistência local de autenticação.
 
-## Como Executar
+O usuário autenticado cadastra entradas e despesas, acompanha indicadores financeiros e consulta seu extrato com filtros e comprovantes. O foco de validação é o iPhone físico com Expo Go compatível com **Expo SDK 58**.
+
+## Tecnologias e versões
+
+Versões instaladas e registradas no `package-lock.json` na revisão desta etapa:
+
+| Tecnologia | Versão | Uso |
+| --- | --- | --- |
+| Expo | 58.0.23 | Execução e módulos nativos |
+| React Native | 0.88.1 | Interface mobile |
+| React | 19.3.0 | Componentes, hooks e Context |
+| Expo Router | 58.0.30 | Navegação por arquivos |
+| Firebase JS SDK | 12.18.0 | Authentication, Firestore e Storage |
+| Expo SecureStore | 58.0.2 | Persistência segura da sessão nativa |
+| Expo DocumentPicker | 58.0.4 | Seleção de imagens e PDFs |
+| Expo WebBrowser | 58.0.7 | Abertura do comprovante salvo |
+| DateTimePicker | 9.2.1 | Seleção de datas |
+| AsyncStorage | 2.2.0 | Remoção dos registros antigos de Auth, sem fallback para tokens |
+| Reanimated / Worklets | 4.7.1 / 0.13.0 | Dependências nativas instaladas; o dashboard usa `Animated` do React Native |
+| TypeScript | 6.0.3 | Verificação estática |
+| ESLint / eslint-config-expo | 9.39.5 / 58.0.4 | Análise de código |
+
+Não há Redux, Zustand ou React Query. O estado compartilhado usa Context e stores de apresentação com `useSyncExternalStore`.
+
+## Configuração e execução
 
 ### Pré-requisitos
 
-- Node.js / npm.
-- Ambiente compatível com Expo.
-- Projeto Firebase com Authentication, Cloud Firestore e Firebase Storage.
-- Provedor Email/Password habilitado no Firebase Authentication.
+- Node.js compatível com as dependências. O ambiente desta revisão usa **Node 24.14.1**; a versão instalada do Expo aceita `^22.13.0`, `^24.3.0`, `^26.0.0` ou `>=27.0.0`.
+- npm e acesso à rede para instalar os pacotes.
+- Expo Go compatível com SDK 58 no iPhone, com acesso ao servidor Metro do computador.
+- Projeto Firebase com Authentication por **Email/Password**, Cloud Firestore, Storage, regras e índices compatíveis com os arquivos versionados.
 
 ### Instalação
 
 ```bash
 git clone https://github.com/fhvieira/tech-challenge-finance-mobile.git
 cd tech-challenge-finance-mobile
-npm install
+npx --yes npm@11.21.1 ci
 ```
 
-### Configuração do Firebase
+O comando usa temporariamente o npm 11.21.1, adotado na migração para evitar o conflito de resolução de peers opcionais do DateTimePicker, sem substituir o npm global. `ci` utiliza o lockfile existente. Não use `--force` ou `--legacy-peer-deps` para contornar incompatibilidades.
 
-A configuração Web do Firebase fica em `firebaseConfig.ts`. Para usar outro projeto Firebase, substitua os valores desse arquivo pelos dados do seu projeto no Firebase Console.
+### Configuração Firebase e variáveis de ambiente
 
-A Web API key do Firebase identifica o projeto no cliente e não é uma credencial secreta. A proteção dos dados depende do Firebase Authentication e das regras de segurança publicadas no Firestore e no Storage.
+**A implementação atual não exige variáveis de ambiente da aplicação.** Ela não lê configurações Firebase de `.env` e não possui `.env.example`. Criar variáveis `EXPO_PUBLIC_*` isoladamente não muda o projeto.
 
-Publique regras compatíveis com:
+O objeto de configuração do cliente está em `firebaseConfig.ts`. Para utilizar outro projeto, configure nesse arquivo os campos `apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId` e `appId` com a configuração Web correspondente do Firebase Console. Nenhum valor de configuração é reproduzido neste README.
 
-- `users/{uid}/transactions/{transactionId}`
-- `users/{uid}/receipts/{arquivo}`
+A [API key Web do Firebase](https://firebase.google.com/docs/projects/api-keys) identifica o projeto cliente; ela não substitui autenticação nem regras de autorização. Não inclua senhas, tokens de sessão, contas de serviço ou chaves privadas no aplicativo ou no repositório. `.env` e `.env.*` estão ignorados pelo Git, mas isso não implementa sua leitura. `EXPO_OS`, usado em componentes auxiliares, é fornecido pelo Expo e não precisa de configuração manual.
 
-### Execução
+### Iniciar no iPhone
 
 ```bash
-npm start
+npm start -- --go
 ```
 
-Ou:
+Abra o QR Code com o iPhone e carregue o projeto no Expo Go. Computador e celular precisam de conectividade entre si; em uma rede local, mantenha-os na mesma rede. Se necessário, reinicie o Metro com limpeza de cache:
 
 ```bash
-npx expo start
+npx expo start --go --clear
 ```
 
-O Expo exibirá opções como Expo Go, iOS Simulator, Android Emulator ou navegador web, conforme o ambiente local.
+O primeiro acesso após a troca da persistência de autenticação exige reinício completo do projeto e novo login; Fast Refresh sozinho não faz essa transição. O Expo Go deve ser compatível com SDK 58.
+
+Scripts disponíveis: `npm run ios`, `npm run android` e `npm run web`. Simuladores/emuladores exigem seus ambientes nativos. A configuração Web usa saída estática e a persistência padrão do Firebase para Web; SecureStore é utilizado somente no aplicativo nativo. A validação mobile no iPhone não comprova todos os fluxos Web/Android.
 
 ## Funcionalidades
 
-- Cadastro, login e logout com Firebase Authentication.
-- Isolamento das transações por usuário autenticado.
-- Dashboard com saldo, entradas, despesas, gráfico comparativo e análise financeira.
-- Seções do dashboard com animações e transições de expandir/recolher.
-- Criação, edição e exclusão de transações.
-- Tipos de transação: Entrada e Despesa.
-- Validação inline dos formulários.
-- Filtros por categoria, valor mínimo, valor máximo e período.
-- Carregamento progressivo/infinite scroll das transações.
-- Upload de comprovantes ou documentos.
-- Persistência das transações no Cloud Firestore.
-- Armazenamento de comprovantes no Firebase Storage.
+- Cadastro, login e logout com Firebase Authentication e persistência segura da sessão nativa.
+- Isolamento dos caminhos de transações e comprovantes pelo UID autenticado.
+- Dashboard com saldo, entradas, despesas, gráfico comparativo e análise financeira; seções expansíveis com animações.
+- Criação, edição e exclusão de transações com validações, estados de gravação, bloqueio de operações duplicadas e mensagens de erro.
+- Edição por consulta direta ao ID, independente das páginas carregadas.
+- Extrato com `FlatList`, páginas de 10 registros e carregamento adicional sob demanda.
+- Filtros inclusivos de valor/data no Firestore e pesquisa por trecho de categoria em lotes limitados.
+- Pré-carregamento e cache temporário da primeira página sem filtros, incluindo cursor e contagem.
+- Upload de imagens/PDFs, preservação do comprovante existente e abertura do comprovante salvo no navegador do sistema.
+- Formatação monetária e de datas brasileira, labels de acessibilidade, feedback nos botões e erros inline.
 
-## Tecnologias Utilizadas
+## Clean Architecture
 
-- React Native 0.86.3.
-- React 19.2.3.
-- TypeScript.
-- Expo 57.
-- Expo Router.
-- Firebase 12.18.0.
-- Firebase Authentication.
-- Cloud Firestore.
-- Firebase Storage.
-- React Context API.
-- Expo Document Picker.
-- React Native Community DateTimePicker.
+`app/_layout.tsx` é o ponto de composição: instancia repositories Firebase, cria os casos de uso e os injeta no `TransactionsProvider`.
 
-## Arquitetura
+| Camada | Arquivos | Responsabilidade |
+| --- | --- | --- |
+| Domain | `src/domain/entities`, `repositories` e `errors` | Entidades, filtros, páginas, erros e contratos independentes de React, Expo ou Firebase |
+| Application | `src/application/use-cases` | Criar, atualizar, excluir, obter por ID, obter resumo, obter páginas/contagem e coordenar gravação com comprovante |
+| Infrastructure | `src/infrastructure/repositories` e `auth` | Firestore, Storage, conversões de datas/cursores e adaptador de persistência segura |
+| Presentation | `app`, `contexts`, `hooks`, `components` e `constants` | Interface, navegação, autenticação observável, estado e coordenação das consultas |
 
-O projeto usa Expo Router para navegação baseada em arquivos. Os providers globais são aplicados em `app/_layout.tsx`.
-
-Telas principais:
-
-- `app/login.tsx`: login.
-- `app/register.tsx`: cadastro.
-- `app/index.tsx`: dashboard financeiro.
-- `app/transactions.tsx`: extrato, filtros e lista de transações.
-- `app/transaction-form.tsx`: criação e edição de transações.
-
-Contextos:
-
-- `AuthContext`: estado do usuário autenticado.
-- `TransactionsContext`: estado das transações e operações de CRUD no Firestore.
-
-Estrutura resumida:
+Application depende dos contratos de Domain; Infrastructure implementa esses contratos. O Context de transações utiliza casos de uso e não importa o SDK Firebase. `AuthContext` e as telas de autenticação ainda acessam Firebase Auth diretamente: não há uma abstração de autenticação equivalente à de transações.
 
 ```text
-.
-├── app
-│   ├── _layout.tsx
-│   ├── index.tsx
-│   ├── login.tsx
-│   ├── register.tsx
-│   ├── transaction-form.tsx
-│   └── transactions.tsx
-├── constants
-│   ├── formatters.ts
-│   ├── formValidationStyles.ts
-│   ├── pressableFeedback.ts
-│   └── theme.ts
-├── contexts
-│   ├── AuthContext.tsx
-│   └── TransactionsContext.tsx
-├── hooks
-├── scripts
-├── firebaseConfig.ts
-└── package.json
+app/
+  _layout.tsx                 # Composição e navegação
+  index.tsx                   # Dashboard
+  login.tsx / register.tsx    # Autenticação
+  transactions.tsx            # Extrato e filtros
+  transaction-form.tsx        # Criação/edição e abertura de comprovante
+contexts/
+  AuthContext.tsx
+  TransactionsContext.tsx
+hooks/
+  use-financial-summary.ts    # Store do resumo por UID
+  use-transactions-pagination.ts # Paginação, pesquisa, cache e preloading
+src/
+  domain/                     # Transaction, FinancialSummary, páginas e contratos
+  application/use-cases/      # Regras de coordenação da aplicação
+  infrastructure/
+    auth/                     # SecureAuthStorage e inicialização única
+    repositories/             # FirebaseTransactionRepository / FirebaseReceiptRepository
+firebaseConfig.ts
+firebase.json
+firestore.rules / storage.rules / firestore.indexes.json
+tests/
 ```
 
-O app usa React Context API. `AuthProvider` observa o Firebase Authentication com `onAuthStateChanged` e expõe o usuário atual. `TransactionsProvider` fica dentro do `AuthProvider`, pois as transações dependem do UID autenticado; ele disponibiliza páginas por cursor, pesquisa e operações de adicionar, editar e excluir. Não há listener de transações carregando o histórico completo.
+A entidade `Transaction` usa `Date`, sem `Timestamp` do Firebase. O repository converte as datas ao ler/gravar. Os cursores preservam a precisão original do Firestore e não são reconstruídos a partir dos `Date` da entidade.
 
-## Firebase
+## Firebase e segurança
 
-### Authentication
+### Authentication e persistência local
 
-Firebase Authentication com Email/Password é usado para cadastro, login, logout e identificação do usuário atual.
+O app usa Email/Password e `onAuthStateChanged()`. No nativo, `initializeAuth()` recebe `getReactNativePersistence()` com o adaptador SecureStore, que utiliza `getItemAsync()`, `setItemAsync()` e `deleteItemAsync()`, sem biometria obrigatória. Firebase continua responsável pelos tokens e pela renovação da sessão; não há gerenciamento manual desses tokens.
 
-### Cloud Firestore
+As chaves são codificadas deterministicamente por unidades UTF-16 de largura fixa, com escopo do projeto/Firebase App. A inicialização reutiliza Auth, adaptador e status durante Fast Refresh. Falhas do armazenamento são exibidas sem mensagens nativas sensíveis e bloqueiam o fluxo normal, desmontando os providers internos; não há fallback silencioso para AsyncStorage.
 
-As transações são armazenadas em:
+Na preparação, somente os registros legados `firebase:authUser:<apiKey>:<appName>`, `firebase:persistence:<apiKey>:<appName>` e `firebase:redirectUser:<apiKey>:<appName>` deste Firebase App são removidos do AsyncStorage. A sessão antiga não é copiada: o usuário faz login novamente. Outros dados locais e todos os dados remotos permanecem intactos. Logout remove a sessão segura e eventual registro legado correspondente.
 
-```text
-users/{uid}/transactions/{transactionId}
-```
+No iOS, o Keychain pode sobreviver à reinstalação. Limites nativos de tamanho/disponibilidade variam; valores rejeitados resultam em erro explícito, sem truncamento ou armazenamento em texto puro. O cache financeiro descrito abaixo é separado da persistência de autenticação.
 
-Cada usuário possui sua própria subcoleção. A aplicação consulta as transações por `createdAt` em ordem decrescente.
+### Firestore, Storage e regras
 
-O arquivo `firestore.indexes.json`, referenciado por `firebase.json`, define o índice composto de `transactions` com escopo `COLLECTION`: `type ASCENDING`, `createdAt DESCENDING` e `amount DESCENDING`. Ele atende às agregações financeiras de entradas e saídas do dashboard, que filtram por tipo, ordenam por criação e somam o valor.
+- Transações: `users/{uid}/transactions/{transactionId}`.
+- Comprovantes: `users/{uid}/receipts/{idAleatorio}`.
+- `createdAt` e `updatedAt` são atribuídos com `serverTimestamp()` nas operações correspondentes.
+- `firestore.rules` e `storage.rules` exigem usuário autenticado com UID igual ao segmento do caminho. Outros caminhos não recebem permissão nessas regras.
+- As regras locais foram copiadas da configuração publicada fornecida pelo responsável pelo projeto. `firebase.json` referencia ambos os arquivos e os índices. A presença local não comprova o estado remoto atual; compare com o Firebase Console antes da entrega.
+- As regras atuais isolam caminhos; não implementam validação de schema, valor monetário, tamanho ou MIME dos anexos no servidor.
 
-Para publicar somente os índices, com a Firebase CLI instalada e autenticada:
+As conexões dos SDKs utilizam HTTPS/TLS; Authentication, Firestore e Storage também protegem os dados em repouso, conforme a [documentação de segurança do Firebase](https://firebase.google.com/support/privacy#data_encryption). Isso não é criptografia ponta a ponta implementada pelo aplicativo. A proteção local adicionada nesta fase é a persistência nativa de Auth via SecureStore.
+
+**URLs de download são sensíveis:** quem possuir um link válido com token poderá acessar o arquivo. Não publique esses links nem os registre em logs. As regras por UID não representam uma nova checagem de autenticação a cada acesso à URL com token.
+
+### Índices versionados
+
+`firestore.indexes.json` contém quatro índices da coleção `transactions`, todos com escopo `COLLECTION`:
+
+| Finalidade | Campos na ordem do índice |
+| --- | --- |
+| Agregações de entradas/saídas | `type ASC`, `createdAt DESC`, `amount DESC` |
+| Intervalo de valor | `createdAt DESC`, `amount DESC` |
+| Intervalo de data | `createdAt DESC`, `date DESC` |
+| Valor e data combinados | `createdAt DESC`, `amount DESC`, `date DESC` |
+
+O desempate final dos índices é `__name__ DESC`. Categoria reutiliza as consultas de candidatos e não exige um índice de substring. Caso precise publicar somente os índices, após revisão e com Firebase CLI instalada/autenticada, execute explicitamente:
 
 ```bash
 firebase deploy --only firestore:indexes --project tech-challenge-finance-mobile
 ```
 
-Após a publicação, aguarde o índice ficar ativo no Firebase Console antes de validar as agregações. Esse comando não publica regras de segurança.
+Esse comando altera o Firebase remoto e não publica as regras. Aguarde todos os índices necessários ficarem ativos no Console. Alterações em regras exigem revisão e publicação explícitas separadas; iniciar o Expo não publica regras nem índices. `failed-precondition` pode indicar índice ausente/em construção e deve ser investigado, nunca tratado como coleção vazia.
 
-### Firebase Storage
+## Dashboard e atualização dos dados
 
-Comprovantes são enviados para:
+`GetFinancialSummary` obtém `transactionCount`, `totalIncome` e `totalExpense` por três consultas independentes com `getAggregateFromServer()`, `count()` e `sum("amount")`. As consultas mantêm `orderBy("createdAt", "desc")`, preservando o universo de documentos com esse campo. Os indicadores não dependem da lista paginada.
 
-```text
-users/{uid}/receipts/{arquivo}
+O saldo é entradas menos despesas. O gráfico compara os totais usando o maior entre entradas, despesas e 1 como referência. As fórmulas e animações estão em `app/index.tsx`.
+
+O resumo é consultado na autenticação, no foco do dashboard, após CRUD confirmado e quando o aplicativo volta ao primeiro plano com o dashboard em foco. Requisições concorrentes são compartilhadas; respostas de revisões/UIDs antigos são descartadas. Antes da primeira resposta, a interface mostra carregamento; se uma atualização falhar, preserva o último resumo válido do mesmo UID e sinaliza desatualização/erro.
+
+Context e stores publicam mudanças de estado para os componentes via hooks. Isso é atualização reativa da interface, **sem listener ilimitado `onSnapshot()` de transações**. Agregações não são assinaturas em tempo real. Alterações de outro dispositivo exigem nova consulta por foco/retorno ao primeiro plano; as três agregações não formam um snapshot atômico entre si.
+
+## Paginação, filtros e contagem
+
+`FirebaseTransactionRepository.getPage()` usa `getDocsFromServer()`, `limit(tamanho + 1)` e `startAfter()`. O documento adicional detecta `hasMore` e não é entregue na página. O extrato usa páginas de 10 itens com `onEndReached` para carregar dados sob demanda (lazy loading), sem limitar localmente uma coleção previamente carregada.
+
+A ordem principal é sempre `createdAt DESC`. Sem intervalos, o desempate é ID descendente. Com valor, acrescenta `amount DESC`; com data, acrescenta `date DESC`; com ambos, valor precede data. O ID é sempre o último critério. A lista deduplica IDs; nenhuma ordenação global é simulada somente dentro da página.
+
+Os limites de valor são inclusivos. A tela normaliza as datas para início/fim do dia local; no repository, o fim é expresso como menor que o milissegundo seguinte, incluindo os nanossegundos do último milissegundo. Não são filtros por `createdAt`: o intervalo de data usa o campo `date` da transação.
+
+Sem categoria, `GetTransactionsCount` usa agregação `count()` com os mesmos filtros e campos de ordenação, sem cursor ou limite. Enquanto o total não está disponível, a interface não apresenta contagem parcial como total exato. Erros de página/contagem têm tratamento próprio e nova tentativa, sem indicar fim do histórico indevidamente.
+
+O cursor opaco vincula UID, filtros, ordenação e valores originais do último documento entregue, incluindo segundos/nanossegundos dos timestamps. Ele não é uma credencial. Troca de UID/filtros, reinício e CRUD confirmado invalidam respostas antigas. Consultas já enviadas não são canceladas fisicamente pelo SDK; seus resultados são descartados quando obsoletos.
+
+### Pesquisa por categoria
+
+A semântica é `category.toLowerCase().includes(texto.trim().toLowerCase())`: remove espaços nas extremidades da pesquisa e ignora maiúsculas/minúsculas, sem retirar acentos ou espaços internos.
+
+`GetTransactionsPage` busca lotes de candidatos pelo mesmo repository, com os filtros remotos de data/valor, e aplica a categoria localmente a cada lote. Continua até preencher a página, esgotar candidatos ou atingir o orçamento por ação. A composição configura lotes de até 10 e **100 leituras potenciais por ação**, reservando `tamanho do lote + 1` para incluir o documento adicional de paginação. Portanto, uma ação pode examinar menos de 100 candidatos; esse orçamento não é uma medição completa do faturamento de entradas de índice/regras.
+
+Todo candidato examinado avança o cursor, mesmo sem corresponder à categoria. Se o orçamento terminar com candidatos restantes, aparece **Continuar pesquisa** e o carregamento automático fica suspenso. O total só se torna conhecido ao esgotar a varredura; antes disso, a interface mostra a quantidade encontrada e pesquisa em andamento. A mensagem de ausência de resultados só aparece após esgotar os candidatos.
+
+Falhas intermediárias não publicam itens/cursor parciais daquela ação. A tentativa seguinte retoma do cursor anterior e pode repetir leituras, preservando as páginas concluídas. Pesquisas raras/inexistentes podem exigir várias ações e examinar todos os candidatos ao longo delas; não há consulta ilimitada para calcular a contagem.
+
+## Cache, preloading e gerenciamento de estado
+
+Ao receber foco autenticado, o dashboard chama `preloadFirstPage()`. O store existente reutiliza os casos de uso de página/contagem e guarda em memória somente a **primeira página sem filtros**, cursor, `hasMore` e contagem. Não há um segundo mecanismo de paginação.
+
+- Chave com UID e filtros normalizados; consultas filtradas não alimentam nem reutilizam esse cache.
+- TTL de **30 segundos**, contado após a conclusão bem-sucedida da página e da contagem; acessos não renovam a validade.
+- Expiração verificada no acesso, sem polling ou temporizador.
+- Dentro do TTL, abrir o extrato sem filtros reutiliza página/contagem sem repetir `getPage()`/`getCount()`; páginas seguintes continuam com o cursor original.
+- Preloading e abertura simultâneos compartilham a operação em andamento. Falhas de preloading não impedem a abertura normal.
+- Sair da tela limpa o estado visível e invalida respostas pendentes, mas preserva o cache até expirar.
+- CRUD confirmado, logout, troca de UID ou desmontagem do Provider invalidam os dados afetados. Respostas antigas não podem repovoar o cache.
+- Nenhum dado financeiro é persistido em AsyncStorage, SecureStore ou disco por esse cache.
+
+Os stores de paginação/resumo pertencem ao UID e expõem snapshots por `useSyncExternalStore`; Context disponibiliza as operações. Há estados separados para carregamento inicial, páginas adicionais, contagem, resumo e erros, com bloqueios de concorrência e descarte de respostas antigas.
+
+Para comprovar o cache, os testes de preloading contam chamadas ao repository. No dispositivo, abra o extrato sem filtros em menos de 30 segundos após o preloading; `firstPageSource` no Context deve ser `"cache"`. Uma consulta da próxima página com cursor não é uma repetição da primeira. Não são necessários logs permanentes. Alterações externas podem ficar desatualizadas durante o TTL; preloading pode gerar leituras mesmo se o usuário não abrir o extrato.
+
+## CRUD e comprovantes
+
+O formulário rejeita `NaN`, infinitos, zero e valores negativos. Os casos de uso de criação/edição também exigem valor finito maior que zero. Há bloqueio síncrono antes da próxima renderização para toques rápidos em Salvar, botão desabilitado durante gravação e proteção contra exclusões/confirmações repetidas. O Context compartilha operações equivalentes em andamento por UID e rejeita ausência de autenticação.
+
+`SaveTransactionWithReceipt` coordena upload e os casos de uso existentes. Erros preservam os campos e o arquivo selecionado; a tela só retorna após sucesso confirmado. Falhas na atualização de página/resumo não transformam uma gravação bem-sucedida em erro de salvamento.
+
+### Upload e visualização
+
+1. DocumentPicker seleciona imagem/PDF e fornece URI, nome e MIME.
+2. `FirebaseReceiptRepository` cria um caminho com ID aleatório, sem sobrescrever o comprovante anterior.
+3. O MIME segue a prioridade: tipo específico do picker, extensão conhecida (`pdf`, `jpg`, `jpeg`, `png`), tipo específico do Blob e, por fim, `application/octet-stream` para desconhecidos.
+4. O upload informa explicitamente `contentType` e `contentDisposition: "inline"`.
+5. `getDownloadURL()` fornece a URL que será salva em `receiptUrl` no documento da transação.
+
+A edição usa `GetTransactionById` e preserva a URL antiga quando não há novo arquivo. **Abrir comprovante atual** aparece somente na edição com URL salva e usa `expo-web-browser.openBrowserAsync()`, sem gravar dados. A abertura possui bloqueio de toques repetidos e erro amigável, sem logs de URLs/tokens. Novo arquivo selecionado aparece como **ainda não salvo**; abrir o atual continua apontando para o comprovante já gravado.
+
+A renderização de PDF/imagem depende do formato e dos metadados HTTP. Erros HTTP podem aparecer no próprio navegador e não ser uma rejeição de `openBrowserAsync()`. A correção de MIME só afeta novos uploads; metadados de arquivos antigos não são alterados automaticamente.
+
+### Limpeza conservadora
+
+Somente o upload novo pode ser removido automaticamente, quando não foi associado: após rejeição explícita da gravação (`permission-denied`, `unauthenticated`, `invalid-argument`, `not-found`, `already-exists`) ou falha em obter a URL antes de tentar gravar a transação. Falhas de limpeza são informadas sem ocultar o erro original.
+
+Em resultado inconclusivo, o arquivo é preservado e a interface orienta conferir o extrato antes de repetir. Comprovantes antigos não são apagados automaticamente em edição ou exclusão. A autorização local de limpeza é descartada ao terminar a tentativa e não substitui as regras remotas. Storage e Firestore não são uma operação atômica: encerramento do app, limpeza malsucedida ou resultado inconclusivo podem deixar órfãos.
+
+## Testes e verificações
+
+Os testes usam `node:test`, TypeScript para carregar os módulos e mocks controlados dos serviços nativos/Firebase. Parte das verificações exercita contratos do SDK instalado e construção de consultas; não existe uma suíte de regras em Emulator Suite ou testes end-to-end de dispositivo neste repositório.
+
+```bash
+npx tsc --noEmit
+npm run lint
+node --test tests/*.test.cjs
+git diff --check
 ```
 
-A URL de download é salva em `receiptUrl` no documento da transação.
+Na revisão desta etapa, a suíte contém **123 testes**, cobrindo:
 
-### Confiabilidade da gravação e dos comprovantes
+- Agregações financeiras e seus estados de erro, atualização, concorrência e isolamento por UID.
+- Páginas vazias/intermediárias/finais, precisão dos cursores, filtros, contagem e rejeição de cursores incompatíveis.
+- Categoria rara/inexistente, orçamento com documento adicional, continuação e falhas de rede.
+- Cache/preloading, TTL com relógio controlado, compartilhamento de operações, invalidação e continuidade.
+- Falhas de CRUD/upload/limpeza, toques rápidos, ausência de usuário, valores inválidos e preservação do formulário.
+- Visualização sem gravações, MIME de PDF/JPEG/PNG, arquivos desconhecidos e ausência de alterações automáticas em objetos antigos.
+- Persistência segura, limpeza das chaves legadas, logout, Fast Refresh e mensagens sanitizadas.
 
-O formulário bloqueia envios repetidos durante a gravação, preserva campos e arquivo selecionado após falhas e só retorna à tela anterior após confirmação. A exclusão também impede confirmações repetidas e apresenta falhas ao usuário. Sem usuário autenticado, as operações rejeitam explicitamente. Valores precisam ser finitos e maiores que zero, tanto no formulário quanto nos casos de uso de criação e edição.
+Os testes não comprovam regras/índices publicados, cobrança real, Keychain nativo ou renderização de arquivos no iPhone. Não há percentual de cobertura configurado; a quantidade de testes não representa cobertura total dos comportamentos.
 
-`SaveTransactionWithReceipt` reutiliza os casos de uso existentes e coordena `ReceiptRepository`, implementado pelo Firebase Storage. Cada novo upload recebe um caminho com ID aleatório, sem sobrescrever o comprovante anterior. A limpeza remove somente uploads desta tentativa quando o Firestore rejeita explicitamente a gravação (`permission-denied`, `unauthenticated`, `invalid-argument`, `not-found` ou `already-exists`) ou quando o upload foi confirmado, mas a obtenção da URL falhou antes de qualquer gravação. A permissão local de limpeza é descartada ao terminar a tentativa; ela não é um mecanismo de autorização remoto.
+### Roteiro de validação no iPhone
 
-Em resultados inconclusivos, o arquivo é preservado e a interface orienta conferir o extrato antes de repetir a gravação. Falhas de limpeza são informadas sem substituir o erro original. Comprovantes antigos não são removidos automaticamente na edição ou exclusão. Storage e Firestore não fazem parte de uma operação atômica: encerramento do aplicativo, falhas de limpeza ou resultados inconclusivos ainda podem deixar arquivos órfãos. Durante falta de conexão, o SDK pode manter a gravação pendente até reconectar; o aplicativo mantém o bloqueio e não anuncia sucesso antecipadamente.
+1. Cadastrar/logar, fechar/reabrir mantendo sessão, fazer logout e confirmar que ela não reaparece; alternar entre duas contas.
+2. Criar/editar/excluir com toques rápidos; conferir resultados, atualização do dashboard e limpeza dos campos somente por navegação após sucesso.
+3. Testar desconexão/reconexão: uma gravação pode permanecer pendente até a rede voltar, sem sucesso antecipado. Após erro, conferir campos preservados e nova tentativa.
+4. Percorrer conjuntos com 0, 1, 10, 11 e mais de 20 transações; combinar limites de data/valor e conferir a contagem.
+5. Pesquisar categoria comum, rara e inexistente; usar **Continuar pesquisa** quando houver candidatos restantes e testar alteração de filtros durante leitura.
+6. Abrir o extrato dentro e fora do TTL; verificar continuidade das páginas, CRUD e troca de UID sem reutilização incompatível.
+7. Enviar um PDF novo e uma imagem JPEG/PNG nova; salvar, reabrir a edição e visualizar. Confirmar MIME/`inline` no Storage e preservação do formulário ao voltar.
+8. Selecionar novo comprovante sem salvar e abrir o atual; confirmar que a URL salva continua sendo usada. Verificar edição sem novo arquivo e cancelamento sem gravação.
+9. Testar as permissões e os quatro índices no ambiente Firebase autorizado; mocks locais não substituem essa verificação.
 
-Testes locais: `node --test tests/transaction-mutations.test.cjs`. No iPhone, validar toques rápidos em Salvar/Excluir, erro e retomada com os campos preservados, envio de PDF/imagem, edição sem novo comprovante e atualização do extrato/dashboard após sucesso. Os testes simulam Firestore e Storage; falhas reais e permissões precisam de validação em ambiente de teste, sem alterar as regras publicadas.
+## Limitações conhecidas
 
-## Segurança e Autorização
-
-Autenticação identifica o usuário logado. Autorização restringe o acesso no Firestore e no Storage com base no UID autenticado.
-
-As regras configuradas impedem que um usuário acesse transações ou comprovantes de outro usuário. O projeto foi testado com usuários autenticados diferentes, confirmando que um usuário recém-criado não recebe as transações de outro usuário.
-
-Exemplo de regra para o Firestore:
-
-```text
-rules_version = '2';
-
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/transactions/{transactionId} {
-      allow read, write: if request.auth != null
-                         && request.auth.uid == userId;
-    }
-  }
-}
-```
-
-Exemplo de regra para o Firebase Storage:
-
-```text
-rules_version = '2';
-
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /users/{userId}/receipts/{fileName} {
-      allow read, write: if request.auth != null
-                         && request.auth.uid == userId;
-    }
-  }
-}
-```
-
-### Regras de segurança versionadas
-
-As regras de Firestore (`firestore.rules`) e Storage (`storage.rules`) estão versionadas e referenciadas em `firebase.json`, preservando a configuração dos índices. Os arquivos foram copiados da configuração publicada no Firebase Console, conforme as regras fornecidas para este projeto, sem alteração de lógica.
-
-Nas operações protegidas pelas regras, cada usuário autenticado só pode acessar seus próprios caminhos: `users/{uid}/transactions/{transactionId}` no Firestore e `users/{uid}/receipts/{fileName}` no Storage. Alterações futuras precisam ser revisadas e publicadas explicitamente; modificar os arquivos locais não altera o Firebase remoto.
-
-URLs de comprovantes geradas com tokens de download exigem cuidado: quem possuir o link poderá acessar o arquivo. Esses links devem ser tratados como dados sensíveis, sem publicação ou registro em logs; a proteção dos caminhos por UID não deve ser interpretada como uma nova checagem de autenticação em cada uso do link.
-
-### Persistência local segura da autenticação
-
-No aplicativo nativo, o Firebase Auth usa `getReactNativePersistence()` com o adaptador `SecureAuthStorage`, baseado em `expo-secure-store` compatível com SDK 58 e Expo Go. O Firebase continua responsável por serializar a sessão, renovar tokens e executar logout. O adaptador utiliza `getItemAsync()`, `setItemAsync()` e `deleteItemAsync()`, sem biometria obrigatória. A versão Web mantém a inicialização anterior.
-
-As chaves são codificadas por unidades UTF-16 de largura fixa, com namespace do projeto e do Firebase App, de forma determinística e sem colisões. Não há fallback para guardar tokens no AsyncStorage, nem truncamento ou fragmentação do conteúdo. Valores grandes podem ser rejeitados pelo armazenamento nativo; essa condição é tratada como erro explícito, sem registrar o conteúdo ou mensagens nativas potencialmente sensíveis.
-
-**Transição:** não há migração da sessão antiga. Na preparação, são removidas somente as chaves legadas `firebase:authUser:<apiKey>:<appName>`, `firebase:persistence:<apiKey>:<appName>` e `firebase:redirectUser:<apiKey>:<appName>` deste aplicativo no AsyncStorage. Nenhuma outra chave é apagada e nenhum registro antigo é lido para restaurar login. O usuário fará login novamente uma única vez; depois, a sessão será restaurada pelo SecureStore. Logout remove a sessão segura e eventual registro legado correspondente. Transações e comprovantes remotos não são modificados.
-
-O adaptador e seu status são reutilizados durante Fast Refresh. Na primeira atualização sobre uma instância antiga de Auth, o aplicativo exige reinício completo, evitando apresentar a persistência antiga como segura. Feche e reabra o projeto no Expo Go para validar a transição; Fast Refresh isoladamente não é suficiente.
-
-Falhas na limpeza legada, disponibilidade ou operações do SecureStore são sinalizadas na interface. O fluxo normal é bloqueado e os providers internos são desmontados, limpando seus stores em memória, até reiniciar o aplicativo e concluir a preparação. Isso também impede continuar silenciosamente caso o teste de disponibilidade do Firebase tente selecionar persistência apenas em memória. O armazenamento no Keychain do iOS pode sobreviver à reinstalação; desinstalar não substitui testar o logout.
-
-Validação: `node --test tests/secure-auth-storage.test.cjs` exercita o contrato real da persistência React Native do Firebase com um backend seguro simulado. No iPhone, verificar o primeiro login após reinício completo, fechar/reabrir mantendo a sessão, renovação normal da sessão, logout seguido de reinício e troca entre duas contas sem reaparecimento dos dados anteriores. Os testes locais não comprovam limites de tamanho ou disponibilidade do Keychain real; falhas nativas devem aparecer explicitamente, sem fallback para texto puro.
-
-## Dashboard
-
-O dashboard exibe saldo, total de entradas, total de despesas, comparação visual entre entradas e despesas e uma análise financeira simples. As seções têm transições de expandir/recolher, e o gráfico usa barras animadas para representar a proporção entre entradas e despesas.
-
-## Transações e Filtros
-
-A tela de transações permite consultar, editar e excluir registros. A exclusão exige confirmação antes de remover o documento do Firestore.
-
-Filtros disponíveis:
-
-- Categoria.
-- Valor mínimo.
-- Valor máximo.
-- Data inicial.
-- Data final.
-
-O extrato consulta páginas de 10 transações no Firestore, usando `limit()` e `startAfter()`. Valor mínimo/máximo são inclusivos. As datas selecionadas abrangem o dia local completo, incluindo a precisão em nanossegundos no último milissegundo do dia. `createdAt DESC` permanece como ordenação principal. Sem intervalos, o desempate é por ID descendente; com intervalos, os campos de valor/data filtrados aparecem antes do ID, que é sempre o último critério.
-
-Sem categoria, uma agregação `count()` com os mesmos filtros e campos de ordenação fornece o total, sem cursor nem limite. O contador mostra, por exemplo, `20 de 37 transações filtradas`; enquanto a contagem não estiver disponível, informa apenas os itens carregados, sem apresentar um total parcial ou um zero presumido. Falhas na contagem têm uma ação própria de nova tentativa e não descartam páginas válidas. Contagem e páginas são leituras independentes: alterações concorrentes podem causar diferenças temporárias entre esses resultados. Receber foco, mudar filtros e operações CRUD confirmadas reiniciam as páginas e a contagem; sair da tela limpa a sessão.
-
-O cursor opaco (versão 2) contém UID, identidade dos filtros/ordenação e todos os valores de ordenação do último documento entregue. Timestamps conservam segundos e nanossegundos originais. Cursores de outra consulta/UID ou versões antigas são rejeitados; alterações de filtros/UID e reinícios descartam respostas pendentes. Os tokens não são credenciais e não substituem as regras do Firestore.
-
-### Pesquisa por categoria com leituras limitadas
-
-A pesquisa mantém `category.toLowerCase().includes(texto.trim().toLowerCase())`, sem remover acentos nem mudar os espaços internos. `GetTransactionsPage`, na Application, reutiliza as páginas do repository como lotes de candidatos; valor e data continuam filtrados no Firestore antes do teste local de categoria. Não existe mais fallback de histórico completo nem `onSnapshot()` de transações. `ObserveTransactions` e `TransactionRepository.subscribe()` foram removidos; dashboard e edição por ID permanecem independentes da listagem.
-
-O caso de uso continua consultando até obter 10 correspondências, esgotar os candidatos ou atingir o orçamento por ação. `app/_layout.tsx` configura `candidateBatchSize: 10` e `maxCandidateReads: 100`. Cada lote pede no máximo a quantidade de correspondências que falta para a página, evitando sobras e perdas; todo candidato examinado avança o cursor, mesmo sem corresponder à categoria. O orçamento reserva `tamanho do lote + 1`, incluindo o documento adicional de detecção da próxima página. Portanto, o limite é conservador e pode encerrar a ação antes de examinar 100 candidatos. Ele limita documentos potencialmente retornados pelas consultas, não custos de entradas de índice ou leituras adicionais exigidas por regras de segurança.
-
-Ao atingir o orçamento com candidatos restantes, o extrato mostra **Continuar pesquisa**; `onEndReached` fica suspenso até a ação explícita do usuário. Isso também funciona quando não houve nenhuma correspondência. O contador apresenta apenas `N transações encontradas — pesquisa em andamento`, sem total exato. Só ao esgotar os candidatos a quantidade de correspondências únicas examinadas pode ser mostrada como total. A mensagem de ausência de resultados aparece apenas após a pesquisa terminar sem correspondências; falhas de rede mostram erro e nova tentativa.
-
-O cursor da pesquisa é um envelope opaco que vincula UID, categoria normalizada e filtros ao cursor original do repository. O cursor interno continua preservando toda a precisão e a ordenação do Firestore. Não há outro mecanismo de offsets nem reconstrução por `Date`. Cursores de consultas incompatíveis são rejeitados. Reinício, logout, mudança de UID/filtros e CRUD invalidam as requisições antigas, impedindo novos lotes após uma resposta obsoleta; uma consulta de rede que já começou não pode ser cancelada pelo SDK.
-
-Em falha intermediária, os itens e o cursor parcial daquela ação não são publicados. A nova tentativa repete a ação a partir do cursor anterior, preservando as páginas já concluídas e evitando perder documentos. Pode haver repetição de leituras dentro desse orçamento. Categorias raras ou inexistentes podem exigir várias ações e, se o usuário continuar até o fim, examinar todos os candidatos; nenhuma ação faz uma leitura ilimitada nem consulta a coleção inteira apenas para obter a contagem.
-
-Durante o carregamento adicional, a tela mostra `Carregando mais transações...`. As páginas são leituras pontuais: mudanças de outro dispositivo são refletidas ao reabrir o extrato. Não há snapshot atômico de todo o histórico: inclusões/edições/exclusões concorrentes podem mudar o universo durante a navegação. A lista deduplica IDs e o total da pesquisa descreve a varredura concluída, sem garantir a contagem atual do servidor durante alterações concorrentes. Reabrir a tela reinicia a consulta para obter dados atualizados.
-
-### Cache em memória e pré-carregamento
-
-Ao receber foco após a autenticação, o dashboard chama `preloadFirstPage()`, disponibilizado pelo `TransactionsContext`. O método reutiliza `GetTransactionsPage` e `GetTransactionsCount` no store de paginação existente. A chamada depende do UID e do foco, sem se repetir a cada renderização; os cálculos e as agregações financeiras do dashboard permanecem independentes.
-
-O store guarda **somente a primeira página sem filtros**, com até 10 transações, cursor opaco original, `hasMore` e contagem. A chave considera UID e filtros normalizados; filtros preenchidos (incluindo categoria) não reutilizam nem alimentam esse cache. Assim, o comportamento da pesquisa por categoria e de **Continuar pesquisa** permanece inalterado. Não há persistência desses dados em AsyncStorage, disco ou outro armazenamento.
-
-O TTL padrão é de **30 segundos**, contado da conclusão bem-sucedida da página e da contagem, sem renovação em acessos ao cache. A expiração é verificada no próximo acesso, sem temporizador ou polling. Antes do vencimento, abrir ou reabrir o extrato sem filtros restaura a primeira página e seu cursor sem repetir as consultas de listagem e contagem. As páginas seguintes continuam sendo consultadas normalmente. O TTL não interrompe uma paginação já iniciada nem representa uma garantia de atualização em tempo real.
-
-Reiniciar/encerrar a navegação limpa o estado visível e invalida respostas pendentes, mas preserva esse cache até o TTL. CRUD confirmado invalida todo o cache da sessão e mantém a atualização da paginação existente; uma falha de atualização não transforma uma gravação bem-sucedida em erro de salvamento. Logout, troca de UID ou desmontagem do Provider eliminam o cache. Uma resposta anterior à invalidação não pode repovoá-lo.
-
-Se o extrato abrir durante o preloading, compartilha a mesma operação, inclusive quando a página já chegou e a contagem ainda está pendente. Falhas de preloading são tratadas, não bloqueiam o dashboard e não são armazenadas no cache; abrir o extrato depois da falha tenta o carregamento normal novamente. Dados alterados em outro dispositivo podem permanecer desatualizados por até o TTL antes de uma nova abertura consultar a rede.
-
-Para comprovar o benefício:
-
-1. Autenticar e permanecer no dashboard até concluir o preloading.
-2. No React Native DevTools, colocar breakpoints em `FirebaseTransactionRepository.getPage()` (primeira página: `cursor == null`) e `getCount()` para observar as chamadas antecipadas. As agregações financeiras usam outro método e não entram nessa contagem.
-3. Abrir o extrato sem filtros em menos de 30 segundos. `firstPageSource`, exposto pelo Context para diagnóstico, deve ser `"cache"`; página inicial e contagem não devem consultar novamente. As transações e a continuidade devem aparecer normalmente. Se `onEndReached` pedir outra página, essa consulta terá cursor preenchido e não representa repetição da primeira.
-4. Rolar para a próxima página: somente a nova página deve consultar o repository, usando o cursor preservado. Após o TTL, uma nova abertura deve apresentar `firstPageSource: "network"` e executar novamente página/contagem.
-5. Repetir com CRUD, logout/troca de conta e filtros; nenhum cache incompatível ou invalidado deve aparecer. Aguardar e retomar a pesquisa por categoria continua obedecendo ao orçamento existente.
-
-Os testes em `tests/transactions-preloading.test.cjs` contam as chamadas aos casos de uso e cobrem reaproveitamento, concorrência, TTL com relógio controlado, invalidação, sessão, falhas e continuidade. O benefício verificável é eliminar a repetição das consultas antecipadas na abertura do extrato; o preloading pode executar consultas mesmo se o usuário não visitar a tela.
-
-### Índices e validação remota dos intervalos
-
-Além do índice existente do dashboard, `firestore.indexes.json` define três índices de `transactions`, escopo `COLLECTION`:
-
-| Intervalos | Campos, na ordem do índice |
-| --- | --- |
-| Valor | `createdAt DESC`, `amount DESC` |
-| Data | `createdAt DESC`, `date DESC` |
-| Valor e data | `createdAt DESC`, `amount DESC`, `date DESC` |
-
-O Firestore acrescenta `__name__ DESC` ao final desses índices. As consultas de página e contagem compartilham os mesmos índices. O índice anterior com prefixo `type` atende ao dashboard, mas não substitui esses índices sem filtro de tipo. Manter `createdAt` primeiro pode exigir varrer mais entradas do índice; o limite restringe os documentos entregues, não garante um limite equivalente nas entradas de índice lidas.
-
-Nenhum deploy foi executado nesta etapa. Os quatro índices já foram habilitados e os filtros remotos de data/valor foram validados no iPhone. A categoria reutiliza as mesmas consultas e não exige índices novos. Testes locais com mocks e a construção de consultas pelo SDK **não substituem testes no servidor**. Para validar a pesquisa por categoria no iPhone:
-
-1. Verificar mínimo, máximo e ambos os valores, incluindo documentos exatamente nos limites.
-2. Verificar início, fim e período, incluindo transações nas extremidades do dia local e excluindo o próximo dia.
-3. Combinar valor e data; percorrer mais de duas páginas e conferir o total agregado com os registros conhecidos no Console.
-4. Incluir documentos com o mesmo `createdAt` para conferir os novos desempates e ausência de repetições/lacunas em um conjunto sem alterações concorrentes.
-5. Alterar filtros rapidamente durante leituras, limpar filtros, fazer CRUD e trocar de conta; nenhum item/total da consulta anterior deve reaparecer.
-6. Confirmar resultados e contagem numérica em cada combinação. Mensagens de erro (incluindo índice ausente/em construção) não são validação bem-sucedida, coleção vazia nem fim do histórico. Se necessário, investigar a exceção original do repository sem registrar tokens ou credenciais.
-7. Pesquisar categoria presente no início, somente após muitos lotes e inexistente; conferir pausa pelo orçamento, ausência de falso total/coleção vazia e continuação sem reinício.
-8. Combinar categoria, data e valor; desconectar a rede após uma pausa e tentar continuar, depois reconectar e repetir a tentativa. O cursor deve retomar a ação que falhou, mesmo com zero itens encontrados.
-
-## Upload de Comprovantes
-
-Fluxo implementado:
-
-1. O usuário seleciona imagem ou PDF com Expo Document Picker.
-2. O arquivo é enviado para Firebase Storage.
-3. A aplicação obtém a URL de download.
-4. A URL é salva em `receiptUrl` no Firestore.
-
-Ao editar uma transação sem selecionar novo comprovante, a URL existente é preservada.
-
-## Acessibilidade e UX
-
-A aplicação inclui labels de acessibilidade, áreas de toque adequadas, feedback visual nas ações, fechamento do teclado em formulários, validações inline e formatação de valores monetários e datas no padrão brasileiro.
+- Não há sincronização contínua da coleção ou agregações: os dados são renovados nas ações descritas, com possível defasagem por cache/foco.
+- Páginas, contagem e agregações são leituras independentes. Alterações concorrentes podem mudar o universo, gerar diferenças temporárias ou fazer itens cruzarem fronteiras; deduplicar IDs não cria um snapshot atômico. Reiniciar a consulta atualiza o universo.
+- Categoria usa varredura limitada no cliente, sem mecanismo de busca textual do servidor; continuar até o fim pode examinar todo o conjunto de candidatos e repetir documentos adicionais de paginação.
+- `limit()` e o orçamento de categoria restringem documentos potencialmente entregues, sem limitar todos os custos de entradas de índice. A ordem por criação pode exigir mais varredura de índice nos intervalos.
+- A edição por ID usa `getDoc()` padrão do SDK, enquanto páginas/agregações exigem servidor; não há uma política própria de cache/offline para edição.
+- O Firestore pode manter gravações pendentes offline. Não foi adicionado timeout que anuncie falha enquanto a operação ainda pode ser confirmada depois.
+- Comprovantes dependem de conectividade, formato e metadados. Arquivos antigos podem precisar de correção explícita; anexos antigos e órfãos não têm coleta automática.
+- SecureStore protege a persistência nativa de Auth, sem garantir suporte a qualquer tamanho de payload. Não há biometria obrigatória, App Check ou criptografia ponta a ponta implementados.
+- Auth ainda depende diretamente do Firebase em Presentation; a separação por repositories/casos de uso está concentrada nas transações e comprovantes.
+- A suíte automatizada não inclui Firebase remoto, regras em emulador ou testes end-to-end. A validação no iPhone permanece necessária antes da entrega.
