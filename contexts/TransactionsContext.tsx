@@ -1,8 +1,11 @@
+import type { ReceiptFile } from "../src/domain/repositories/ReceiptRepository";
+import type { SaveTransactionWithReceipt } from "../src/application/use-cases/SaveTransactionWithReceipt";
 import {
   createContext,
   ReactNode,
   useCallback,
   useContext,
+  useRef,
 } from "react";
 import type { Transaction, TransactionInput } from "../src/domain/entities/Transaction";
 import type { CreateTransaction } from "../src/application/use-cases/CreateTransaction";
@@ -19,6 +22,7 @@ import type { UpdateTransaction } from "../src/application/use-cases/UpdateTrans
 import { useAuth } from "./AuthContext";
 
 type TransactionUseCases = {
+  saveWithReceipt: SaveTransactionWithReceipt;
   create: CreateTransaction;
   update: UpdateTransaction;
   delete: DeleteTransaction;
@@ -50,6 +54,7 @@ type TransactionsContextType = {
   isFinancialSummaryStale: boolean;
   refreshFinancialSummary: () => Promise<void>;
   getTransactionById: (id: string) => Promise<Transaction | null>;
+  saveTransaction: (transaction: TransactionInput, receipt?: ReceiptFile | null, id?: string) => Promise<void>;
   addTransaction: (
     transaction: TransactionInput
   ) => Promise<void>;
@@ -82,9 +87,10 @@ const TransactionsContext = createContext<TransactionsContextType>({
   isFinancialSummaryStale: false,
   refreshFinancialSummary: async () => {},
   getTransactionById: async () => null,
-  addTransaction: async () => {},
-  deleteTransaction: async () => {},
-  updateTransaction: async () => {},
+  saveTransaction: async () => { throw new Error("Entre na sua conta para salvar a transação."); },
+  addTransaction: async () => { throw new Error("Entre na sua conta para salvar a transação."); },
+  deleteTransaction: async () => { throw new Error("Entre na sua conta para excluir a transação."); },
+  updateTransaction: async () => { throw new Error("Entre na sua conta para salvar a transação."); },
 });
 
 export function TransactionsProvider({
@@ -96,6 +102,7 @@ export function TransactionsProvider({
 }) {
   const { user } = useAuth();
   const userId = user?.uid ?? null;
+  const writes = useRef(new Map<string, Promise<void>>());
   const { invalidatePagination, ...paginationState } = useTransactionsPagination(userId, useCases.getPage, useCases.getCount);
   const {
     invalidateFinancialSummary,
@@ -108,33 +115,37 @@ export function TransactionsProvider({
     return useCases.getById.execute(userId, id);
   }, [userId, useCases]);
 
-  async function addTransaction(
-    transaction: TransactionInput
-  ) {
-    if (!user) return;
-
-    await useCases.create.execute(user.uid, transaction);
-    void invalidatePagination();
-    void invalidateFinancialSummary();
+  function runWrite(key: string, write: (uid: string) => Promise<void>): Promise<void> {
+    if (!userId) return Promise.reject(new Error("Entre na sua conta para alterar transações."));
+    const operationKey = JSON.stringify([userId, key]);
+    const pending = writes.current.get(operationKey);
+    if (pending) return pending;
+    const request = Promise.resolve().then(() => write(userId)).then(() => {
+      // Refresh failures must never turn a confirmed write into a save error.
+      void Promise.resolve().then(invalidatePagination).catch(() => {});
+      void Promise.resolve().then(invalidateFinancialSummary).catch(() => {});
+    }).finally(() => {
+      if (writes.current.get(operationKey) === request) writes.current.delete(operationKey);
+    });
+    writes.current.set(operationKey, request);
+    return request;
   }
 
-  async function deleteTransaction(id: string) {
-    if (!user) return;
-
-    await useCases.delete.execute(user.uid, id);
-    void invalidatePagination();
-    void invalidateFinancialSummary();
+  function addTransaction(transaction: TransactionInput) {
+    return runWrite("create", (uid) => useCases.create.execute(uid, transaction));
   }
 
-  async function updateTransaction(
-    id: string,
-    transaction: TransactionInput
-  ) {
-    if (!user) return;
+  function updateTransaction(id: string, transaction: TransactionInput) {
+    return runWrite(`update:${id}`, (uid) => useCases.update.execute(uid, id, transaction));
+  }
 
-    await useCases.update.execute(user.uid, id, transaction);
-    void invalidatePagination();
-    void invalidateFinancialSummary();
+  function deleteTransaction(id: string) {
+    return runWrite(`delete:${id}`, (uid) => useCases.delete.execute(uid, id));
+  }
+
+  function saveTransaction(transaction: TransactionInput, receipt?: ReceiptFile | null, id?: string) {
+    return runWrite(id ? `update:${id}` : "create", (uid) =>
+      useCases.saveWithReceipt.execute(uid, transaction, receipt, id));
   }
 
   return (
@@ -143,6 +154,7 @@ export function TransactionsProvider({
         ...paginationState,
         ...summaryState,
         getTransactionById,
+        saveTransaction,
         addTransaction,
         deleteTransaction,
         updateTransaction,

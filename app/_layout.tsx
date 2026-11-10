@@ -1,7 +1,9 @@
+import { FirebaseReceiptRepository } from "../src/infrastructure/repositories/FirebaseReceiptRepository";
+import { SaveTransactionWithReceipt } from "../src/application/use-cases/SaveTransactionWithReceipt";
 import { Stack } from "expo-router";
 import { AuthProvider } from "../contexts/AuthContext";
 import { TransactionsProvider } from "../contexts/TransactionsContext";
-import { db } from "../firebaseConfig";
+import { db, storage } from "../firebaseConfig";
 import { CreateTransaction } from "../src/application/use-cases/CreateTransaction";
 import { DeleteTransaction } from "../src/application/use-cases/DeleteTransaction";
 import { GetTransactionById } from "../src/application/use-cases/GetTransactionById";
@@ -12,9 +14,12 @@ import { UpdateTransaction } from "../src/application/use-cases/UpdateTransactio
 import { FirebaseTransactionRepository } from "../src/infrastructure/repositories/FirebaseTransactionRepository";
 
 const transactionRepository = new FirebaseTransactionRepository(db);
+const createTransaction = new CreateTransaction(transactionRepository);
+const updateTransaction = new UpdateTransaction(transactionRepository);
 const transactionUseCases = {
-  create: new CreateTransaction(transactionRepository),
-  update: new UpdateTransaction(transactionRepository),
+  saveWithReceipt: new SaveTransactionWithReceipt(createTransaction, updateTransaction, new FirebaseReceiptRepository(storage, db)),
+  create: createTransaction,
+  update: updateTransaction,
   delete: new DeleteTransaction(transactionRepository),
   getById: new GetTransactionById(transactionRepository),
   getFinancialSummary: new GetFinancialSummary(transactionRepository),

@@ -1,3 +1,4 @@
+import { TransactionWriteRejected } from "../../domain/errors/TransactionWriteRejected";
 import {
   addDoc,
   collection,
@@ -102,11 +103,11 @@ export class FirebaseTransactionRepository implements TransactionRepository {
   }
 
   async create(userId: string, transaction: TransactionInput): Promise<void> {
-    await addDoc(collection(this.db, "users", userId, "transactions"), {
+    await rejectDefiniteWriteFailure(() => addDoc(collection(this.db, "users", userId, "transactions"), {
       ...transaction,
       date: Timestamp.fromDate(transaction.date),
       createdAt: serverTimestamp(),
-    });
+    }));
   }
 
   async update(
@@ -114,11 +115,11 @@ export class FirebaseTransactionRepository implements TransactionRepository {
     id: string,
     transaction: TransactionInput
   ): Promise<void> {
-    await updateDoc(doc(this.db, "users", userId, "transactions", id), {
+    await rejectDefiniteWriteFailure(() => updateDoc(doc(this.db, "users", userId, "transactions", id), {
       ...transaction,
       date: Timestamp.fromDate(transaction.date),
       updatedAt: serverTimestamp(),
-    });
+    }));
   }
 
   async delete(userId: string, id: string): Promise<void> {
@@ -226,4 +227,17 @@ function toTransaction(id: string, transaction: DocumentData): Transaction {
     createdAt: transaction.createdAt?.toDate(),
     updatedAt: transaction.updatedAt?.toDate(),
   };
+}
+
+async function rejectDefiniteWriteFailure(write: () => Promise<unknown>): Promise<void> {
+  try { await write(); }
+  catch (error) {
+    const code = (error as { code?: string } | null)?.code;
+    // These server/SDK rejections cannot have committed this write. Network,
+    // timeout, cancellation and unknown errors intentionally remain uncertain.
+    if (code && ["permission-denied", "unauthenticated", "invalid-argument", "not-found", "already-exists"].includes(code)) {
+      throw new TransactionWriteRejected(error);
+    }
+    throw error;
+  }
 }

@@ -21,6 +21,7 @@ function loadModule(file, modules = {}) {
   vm.runInNewContext(compiled, {
     exports,
     require: (name) => {
+      if (name === "../../domain/errors/TransactionWriteRejected") return loadModule("src/domain/errors/TransactionWriteRejected.ts");
       assert.ok(name in modules, `Unexpected runtime dependency: ${name}`);
       return modules[name];
     },
@@ -251,6 +252,7 @@ test('summary failure does not reject successful CRUD and failed CRUD does not r
       createContext: () => ({ Provider: () => null }),
       useState: (initial) => [initial, () => {}],
       useCallback: (callback) => callback,
+      useRef: (initial) => ({ current: initial }),
       useEffect: () => {},
     },
     'react/jsx-runtime': require('react/jsx-runtime'),
@@ -260,9 +262,9 @@ test('summary failure does not reject successful CRUD and failed CRUD does not r
   };
   const { TransactionsProvider } = loadModule('contexts/TransactionsContext.tsx', modules);
   const api = TransactionsProvider({ useCases, children: null }).props.value;
-  await api.addTransaction({}); await store.refreshFinancialSummary();
-  await api.updateTransaction('tx', {}); await store.refreshFinancialSummary();
-  await api.deleteTransaction('tx'); await store.refreshFinancialSummary();
+  await api.addTransaction({});
+  await api.updateTransaction('tx', {});
+  await api.deleteTransaction('tx');
   assert.equal(reads, 4);
   useCases.create.execute = async () => { throw new Error('write failed'); };
   await assert.rejects(api.addTransaction({}), /write failed/);

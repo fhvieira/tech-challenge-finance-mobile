@@ -35,6 +35,9 @@ export default function TransactionsScreen() {
     deleteTransaction,
   } = useTransactions();
 
+  const deleteLocks = useRef(new Set<string>());
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+
   const [categoryFilter, setCategoryFilter] = useState("");
   const [minAmountFilter, setMinAmountFilter] = useState("");
   const [maxAmountFilter, setMaxAmountFilter] = useState("");
@@ -136,6 +139,9 @@ export default function TransactionsScreen() {
   }
 
   function confirmDeleteTransaction(transactionId: string) {
+    if (deleteLocks.current.has(transactionId) || deleteLocks.current.has(`writing:${transactionId}`)) return;
+    deleteLocks.current.add(transactionId);
+    const unlock = () => { deleteLocks.current.delete(transactionId); };
     Alert.alert(
       "Excluir transação?",
       "Esta ação não poderá ser desfeita.",
@@ -143,13 +149,31 @@ export default function TransactionsScreen() {
         {
           text: "Cancelar",
           style: "cancel",
+          onPress: unlock,
         },
         {
           text: "Excluir",
           style: "destructive",
-          onPress: () => deleteTransaction(transactionId),
+          onPress: async () => {
+            if (deletingIds.has(transactionId)) return;
+            // This second lock also guards a repeated confirmation callback
+            // before React has rendered the disabled button.
+            const writing = `writing:${transactionId}`;
+            if (deleteLocks.current.has(writing)) return;
+            deleteLocks.current.add(writing);
+            setDeletingIds((current) => new Set(current).add(transactionId));
+            try { await deleteTransaction(transactionId); }
+            catch {
+              Alert.alert("Não foi possível excluir", "A exclusão não foi confirmada. Verifique sua conexão e tente novamente.");
+            } finally {
+              deleteLocks.current.delete(writing);
+              unlock();
+              setDeletingIds((current) => { const next = new Set(current); next.delete(transactionId); return next; });
+            }
+          },
         },
       ],
+      { cancelable: true, onDismiss: unlock },
     );
   }
 
@@ -388,11 +412,13 @@ export default function TransactionsScreen() {
                   styles.deleteButton,
                   getPressedFeedbackStyle(pressed),
                 ]}
+                disabled={deletingIds.has(transaction.id)}
+                accessibilityState={{ disabled: deletingIds.has(transaction.id), busy: deletingIds.has(transaction.id) }}
                 onPress={() => confirmDeleteTransaction(transaction.id)}
                 accessibilityRole="button"
                 accessibilityLabel={`Excluir transação ${transaction.category}`}
               >
-                <Text style={styles.deleteButtonText}>Excluir</Text>
+                <Text style={styles.deleteButtonText}>{deletingIds.has(transaction.id) ? "Excluindo..." : "Excluir"}</Text>
               </Pressable>
             </View>
           </View>

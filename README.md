@@ -154,6 +154,16 @@ users/{uid}/receipts/{arquivo}
 
 A URL de download é salva em `receiptUrl` no documento da transação.
 
+### Confiabilidade da gravação e dos comprovantes
+
+O formulário bloqueia envios repetidos durante a gravação, preserva campos e arquivo selecionado após falhas e só retorna à tela anterior após confirmação. A exclusão também impede confirmações repetidas e apresenta falhas ao usuário. Sem usuário autenticado, as operações rejeitam explicitamente. Valores precisam ser finitos e maiores que zero, tanto no formulário quanto nos casos de uso de criação e edição.
+
+`SaveTransactionWithReceipt` reutiliza os casos de uso existentes e coordena `ReceiptRepository`, implementado pelo Firebase Storage. Cada novo upload recebe um caminho com ID aleatório, sem sobrescrever o comprovante anterior. A limpeza remove somente uploads desta tentativa quando o Firestore rejeita explicitamente a gravação (`permission-denied`, `unauthenticated`, `invalid-argument`, `not-found` ou `already-exists`) ou quando o upload foi confirmado, mas a obtenção da URL falhou antes de qualquer gravação. A permissão local de limpeza é descartada ao terminar a tentativa; ela não é um mecanismo de autorização remoto.
+
+Em resultados inconclusivos, o arquivo é preservado e a interface orienta conferir o extrato antes de repetir a gravação. Falhas de limpeza são informadas sem substituir o erro original. Comprovantes antigos não são removidos automaticamente na edição ou exclusão. Storage e Firestore não fazem parte de uma operação atômica: encerramento do aplicativo, falhas de limpeza ou resultados inconclusivos ainda podem deixar arquivos órfãos. Durante falta de conexão, o SDK pode manter a gravação pendente até reconectar; o aplicativo mantém o bloqueio e não anuncia sucesso antecipadamente.
+
+Testes locais: `node --test tests/transaction-mutations.test.cjs`. No iPhone, validar toques rápidos em Salvar/Excluir, erro e retomada com os campos preservados, envio de PDF/imagem, edição sem novo comprovante e atualização do extrato/dashboard após sucesso. Os testes simulam Firestore e Storage; falhas reais e permissões precisam de validação em ambiente de teste, sem alterar as regras publicadas.
+
 ## Segurança e Autorização
 
 Autenticação identifica o usuário logado. Autorização restringe o acesso no Firestore e no Storage com base no UID autenticado.

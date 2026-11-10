@@ -298,6 +298,7 @@ test('Context invalidates after confirmed CRUD, contains refresh failure and exp
     react: {
       createContext: () => ({ Provider: () => null }),
       useCallback: (callback) => callback,
+      useRef: (initial) => ({ current: initial }),
     },
     'react/jsx-runtime': require('react/jsx-runtime'),
     './AuthContext': { useAuth: () => ({ user: { uid: 'user-a' } }) },

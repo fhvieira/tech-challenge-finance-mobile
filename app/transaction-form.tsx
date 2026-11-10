@@ -1,8 +1,10 @@
+import { ReceiptUploadError } from "../src/domain/repositories/ReceiptRepository";
+import { TransactionSaveError } from "../src/application/use-cases/SaveTransactionWithReceipt";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
+import * as WebBrowser from "expo-web-browser";
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -19,7 +21,6 @@ import { formatDate } from "../constants/formatters";
 import { formValidationStyles } from "../constants/formValidationStyles";
 import { getPressedFeedbackStyle } from "../constants/pressableFeedback";
 import { useAuth } from "../contexts/AuthContext";
-import { storage } from "../firebaseConfig";
 import type { Transaction } from "../src/domain/entities/Transaction";
 
 import { useTransactions } from "../contexts/TransactionsContext";
@@ -144,15 +145,18 @@ function TransactionForm({ id, transaction }: {
   id?: string;
   transaction: Transaction | null;
 }) {
-  const { user } = useAuth();
-
   const [receipt, setReceipt] =
     useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
-  const {
-    addTransaction,
-    updateTransaction,
-  } = useTransactions();
+  const { saveTransaction } = useTransactions();
+  const submitting = useRef(false);
+  const openingReceipt = useRef(false);
+  const [isOpeningReceipt, setIsOpeningReceipt] = useState(false);
+  const [receiptOpenError, setReceiptOpenError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const [isSaving, setIsSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [type, setType] =
     useState<"income" | "expense">(transaction?.type ?? "expense");
@@ -177,6 +181,7 @@ function TransactionForm({ id, transaction }: {
   }
 
   async function handleSubmit() {
+    if (submitting.current) return;
     const nextErrors: TransactionFormErrors = {};
 
     if (!amount.trim()) {
@@ -191,7 +196,7 @@ function TransactionForm({ id, transaction }: {
 
     if (
       amount.trim() &&
-      (Number.isNaN(numericAmount) || numericAmount <= 0)
+      (!Number.isFinite(numericAmount) || numericAmount <= 0)
     ) {
       nextErrors.amount = "Informe um valor válido maior que zero.";
     }
@@ -202,57 +207,56 @@ function TransactionForm({ id, transaction }: {
       return;
     }
 
-    const receiptUrl = receipt
-      ? await uploadReceipt()
-      : transaction?.receiptUrl ?? null;
-
-    const transactionData = {
-      type,
-      amount: numericAmount,
-      category: category.trim(),
-      description: description.trim(),
-      date,
-      receiptUrl,
-    };
-
-    if (isEditing && id) {
-      await updateTransaction(id, transactionData);
-    } else {
-      await addTransaction(transactionData);
+    submitting.current = true;
+    setIsSaving(true);
+    setSubmitError(null);
+    try {
+      await saveTransaction({
+        type,
+        amount: numericAmount,
+        category: category.trim(),
+        description: description.trim(),
+        date,
+        receiptUrl: transaction?.receiptUrl ?? null,
+      }, receipt, id);
+      if (mounted.current) router.back();
+    } catch (error) {
+      if (mounted.current) setSubmitError(
+        error instanceof TransactionSaveError || error instanceof ReceiptUploadError
+          ? error.message
+          : "Não foi possível salvar a transação. Seus dados foram mantidos. Verifique sua conexão e sua sessão."
+      );
+    } finally {
+      submitting.current = false;
+      if (mounted.current) setIsSaving(false);
     }
+  }
 
-    router.back();
+  async function openCurrentReceipt() {
+    const url = isEditing ? transaction?.receiptUrl : null;
+    if (!url || openingReceipt.current || submitting.current) return;
+    openingReceipt.current = true;
+    setIsOpeningReceipt(true);
+    setReceiptOpenError(null);
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      if (mounted.current) setReceiptOpenError("Não foi possível abrir o comprovante. Tente novamente.");
+    } finally {
+      openingReceipt.current = false;
+      if (mounted.current) setIsOpeningReceipt(false);
+    }
   }
 
   async function pickReceipt() {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ["image/*", "application/pdf"],
-      copyToCacheDirectory: true,
-    });
-
-    if (result.canceled) {
-      return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "application/pdf"], copyToCacheDirectory: true,
+      });
+      if (!result.canceled && mounted.current) setReceipt(result.assets[0]);
+    } catch {
+      if (mounted.current) setSubmitError("Não foi possível selecionar o comprovante. Tente novamente.");
     }
-
-    setReceipt(result.assets[0]);
-  }
-
-  async function uploadReceipt() {
-    if (!receipt || !user) {
-      return null;
-    }
-
-    const response = await fetch(receipt.uri);
-    const blob = await response.blob();
-
-    const fileRef = ref(
-      storage,
-      `users/${user.uid}/receipts/${Date.now()}-${receipt.name}`
-    );
-
-    await uploadBytes(fileRef, blob);
-
-    return await getDownloadURL(fileRef);
   }
 
   return (
@@ -378,11 +382,30 @@ function TransactionForm({ id, transaction }: {
             accessibilityLabel="Descrição da transação"
           />
 
+          {isEditing && transaction?.receiptUrl && (
+            <Pressable
+              style={({ pressed }) => [styles.receiptButton, getPressedFeedbackStyle(pressed)]}
+              onPress={openCurrentReceipt}
+              disabled={isOpeningReceipt || isSaving}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir comprovante atual"
+              accessibilityState={{ disabled: isOpeningReceipt || isSaving, busy: isOpeningReceipt }}
+            >
+              <Text style={styles.receiptButtonText}>
+                {isOpeningReceipt ? "Abrindo comprovante..." : "Abrir comprovante atual"}
+              </Text>
+            </Pressable>
+          )}
+          {receiptOpenError && (
+            <Text style={formValidationStyles.errorText} accessibilityRole="alert">{receiptOpenError}</Text>
+          )}
+
           <Pressable
             style={({ pressed }) => [
               styles.receiptButton,
               getPressedFeedbackStyle(pressed),
             ]}
+            disabled={isSaving}
             onPress={pickReceipt}
             accessibilityRole="button"
             accessibilityLabel="Selecionar comprovante"
@@ -393,7 +416,7 @@ function TransactionForm({ id, transaction }: {
           </Pressable>
 
           {receipt && (
-            <Text>Arquivo selecionado: {receipt.name}</Text>
+            <Text>Novo arquivo selecionado (ainda não salvo): {receipt.name}</Text>
           )}
 
           <Text style={styles.label}>Data</Text>
@@ -424,11 +447,14 @@ function TransactionForm({ id, transaction }: {
             />
           )}
 
+          {submitError && <Text style={formValidationStyles.errorText} accessibilityRole="alert">{submitError}</Text>}
           <Pressable
             style={({ pressed }) => [
               styles.button,
               getPressedFeedbackStyle(pressed),
             ]}
+            disabled={isSaving}
+            accessibilityState={{ disabled: isSaving, busy: isSaving }}
             onPress={handleSubmit}
             accessibilityRole="button"
             accessibilityLabel={
@@ -438,7 +464,7 @@ function TransactionForm({ id, transaction }: {
             }
           >
             <Text style={styles.buttonText}>
-              {isEditing ? "Salvar alterações" : "Concluir transação"}
+              {isSaving ? "Salvando..." : isEditing ? "Salvar alterações" : "Concluir transação"}
             </Text>
           </Pressable>
         </View>

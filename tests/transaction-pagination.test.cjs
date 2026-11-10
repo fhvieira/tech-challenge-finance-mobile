@@ -16,6 +16,7 @@ function loadModule(file, modules = {}) {
   vm.runInNewContext(compiled, {
     exports,
     require: (name) => {
+      if (name === "../../domain/errors/TransactionWriteRejected") return loadModule("src/domain/errors/TransactionWriteRejected.ts");
       assert.ok(Object.hasOwn(modules, name), `Unexpected runtime dependency: ${name}`);
       return modules[name];
     },

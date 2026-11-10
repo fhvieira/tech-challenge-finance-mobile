@@ -12,3 +12,9 @@ export type Transaction = TransactionInput & {
   createdAt?: Date;
   updatedAt?: Date;
 };
+
+export function assertValidTransactionAmount(amount: number): void {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Informe um valor válido maior que zero.");
+  }
+}
